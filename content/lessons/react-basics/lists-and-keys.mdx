@@ -1,0 +1,244 @@
+Most of what you render is a list of something. React has no special syntax for
+this, because it does not need one — you already know `map` from Tier 0.
+
+## Turning data into elements
+
+`map` takes an array of data and returns an array of JSX:
+
+```tsx
+const topics = ["JSX", "Props", "State"];
+
+const list = (
+  <ul>
+    {topics.map((topic) => (
+      <li key={topic}>{topic}</li>
+    ))}
+  </ul>
+);
+```
+
+React renders an array by rendering each item in order, so an array of `<li>`
+elements becomes three list items.
+
+Read the braces carefully, because this is where the shapes stack up:
+
+- The outer `{ }` means "JavaScript expression here".
+- `topics.map(...)` is that expression, and it produces an array.
+- The arrow function returns JSX for one item, wrapped in parentheses.
+
+With objects it looks much the same:
+
+```tsx
+const sessions = [
+  { id: 1, topic: "JSX", minutes: 45 },
+  { id: 2, topic: "Props", minutes: 30 },
+];
+
+const rows = (
+  <ul>
+    {sessions.map((session) => (
+      <li key={session.id}>
+        {session.topic} — {session.minutes} min
+      </li>
+    ))}
+  </ul>
+);
+```
+
+<Callout variant="gotcha">
+Use `map`, not `forEach`. `forEach` returns `undefined`, so you get an empty
+space and no error. If a list renders as nothing at all, this is the first thing
+to check.
+
+Watch the braces too: `(session) => (<li>...)` returns the JSX, but
+`(session) => { <li>...</li> }` returns `undefined` — the arrow function gotcha
+from Tier 0, in the place it does the most damage.
+</Callout>
+
+## The key
+
+You will have noticed `key` in both examples. Leave it out and React warns you in
+the console:
+
+```
+Warning: Each child in a list should have a unique "key" prop.
+```
+
+A `key` gives each item an identity that survives between renders. React does not
+re-create the whole list when something changes — it compares the new description
+against the old one and changes as little as possible. To do that it has to
+answer one question: *is this the same item as before, or a different one?*
+
+The key is your answer. Without it, React can only go on position.
+
+## Why position is not good enough
+
+It is tempting to use the array index, and every React codebase contains someone
+who tried:
+
+```tsx no-audit
+{sessions.map((session, index) => (
+  <li key={index}>{session.topic}</li>
+))}
+```
+
+Consider a list of three sessions, each with a ticked or unticked checkbox, and
+you delete the **first** one.
+
+By identity, the answer is obvious: item 1 is gone, items 2 and 3 are unchanged.
+
+By position, it looks completely different. Position 0 used to hold "JSX" and now
+holds "Props"; position 1 changed from "Props" to "State"; position 2 no longer
+exists. React concludes that the first two items *changed their contents* and the
+third was removed.
+
+The text updates correctly, so the list looks right. But anything React was
+holding on to for each item — which checkbox was ticked, what was typed into an
+input, which row was focused — stays with the **position**, not the item. Delete
+the first session and its ticked checkbox appears to jump down to the second.
+
+That is the bug. It is invisible in a static list, which is exactly why people
+conclude index keys are fine and then get bitten months later.
+
+<Callout variant="tip">
+Index keys are genuinely safe when the list never reorders, never has items
+removed from the middle, and holds no state per item. That is a real set of
+conditions and it does happen — but "I do not have an id" is not one of them.
+</Callout>
+
+## What makes a good key
+
+Three requirements:
+
+- **Unique among siblings.** Not globally unique — two different lists may both
+  use the key `1`.
+- **Stable.** The same item gets the same key on every render.
+- **From the data.** A database id is ideal. A slug or any other value guaranteed
+  unique works too.
+
+```tsx
+const lessons = [
+  { slug: "jsx", title: "JSX" },
+  { slug: "props", title: "Components and props" },
+];
+
+const nav = (
+  <ul>
+    {lessons.map((lesson) => (
+      <li key={lesson.slug}>{lesson.title}</li>
+    ))}
+  </ul>
+);
+```
+
+<Callout variant="warning">
+Never use `Math.random()` as a key. It produces a different value on every
+render, so React concludes that every item is brand new every time — it throws
+away the whole list and rebuilds it, losing all state and any work it saved.
+This is the one choice that is worse than an index.
+</Callout>
+
+## Where the key goes
+
+On the **outermost element returned by the map**, not on something inside it:
+
+```tsx
+const items = [{ id: 1, topic: "JSX", minutes: 45 }];
+
+// Correct - key on the element map returns.
+const right = items.map((item) => (
+  <li key={item.id}>
+    <span>{item.topic}</span>
+  </li>
+));
+
+// Wrong - React never sees it.
+const wrong = items.map((item) => (
+  <li>
+    <span key={item.id}>{item.topic}</span>
+  </li>
+));
+```
+
+If you need a fragment as the outermost element and also a key, use the long
+form, since `<>` cannot take props:
+
+```tsx
+import { Fragment } from "react";
+
+const rows = [{ id: 1, topic: "JSX", minutes: 45 }];
+
+const table = rows.map((row) => (
+  <Fragment key={row.id}>
+    <dt>{row.topic}</dt>
+    <dd>{row.minutes}</dd>
+  </Fragment>
+));
+```
+
+<Callout variant="note">
+`key` is not a normal prop. It is instruction to React, and your component cannot
+read it — a component that needs its own id must be passed one separately, as in
+`<Row key={row.id} id={row.id} />`.
+</Callout>
+
+<Exercise title="Render a list from the course itself">
+Open `components/demos/components-and-props.tsx`. At the moment the five cards
+are written out by hand, which is exactly the repetition `map` removes.
+
+1. Add an array above the demo component holding the data for all five cards —
+   `topic`, `minutes`, `level`, and where relevant `note`. Give each one an `id`.
+
+2. Replace the five hand-written `<SessionCard />` tags with a single `map` that
+   renders one card per entry, keyed by `id`.
+
+3. Confirm the page looks identical. Then add a sixth entry to the array and
+   watch a card appear without touching the JSX.
+
+4. Finally, temporarily change your key to `key={index}` — you will need the
+   second `map` parameter — and confirm nothing visibly breaks. Then think about
+   why, and put it back.
+</Exercise>
+
+<Solution>
+The data, then the map:
+
+```tsx no-audit
+const cards: (SessionCardProps & { id: number })[] = [
+  { id: 1, topic: "JSX", minutes: 45, level: "easy" },
+  { id: 2, topic: "Props", minutes: 30, level: "easy", note: "Read twice." },
+  { id: 3, topic: "State", minutes: 60, level: "medium" },
+  { id: 4, topic: "Effects", minutes: 25, level: "hard", note: "The one everyone overuses." },
+  { id: 5, topic: "Routing", minutes: 90, level: "medium" },
+];
+```
+
+```tsx no-audit
+<div className="grid gap-3 sm:grid-cols-2">
+  {cards.map((card) => (
+    <SessionCard
+      key={card.id}
+      topic={card.topic}
+      minutes={card.minutes}
+      level={card.level}
+      note={card.note}
+    />
+  ))}
+</div>
+```
+
+**Step 4 is the point of the exercise.** Nothing broke — and nothing was going to.
+
+These cards hold no state. There is no checkbox, no input, no focus to lose, and
+the list never reorders. Under those conditions an index key is genuinely fine,
+and if this were the only list you ever wrote you would conclude the warnings
+were overblown.
+
+The trouble is that lists acquire state later. Someone adds a checkbox in three
+months, the list gains a sort control, and the index key that was harmless
+becomes a bug that only appears after sorting — with nothing in the diff to point
+at, because the key was written long before.
+
+So the habit is worth keeping even where you can prove it does not matter today:
+**key by identity, not by position.**
+</Solution>

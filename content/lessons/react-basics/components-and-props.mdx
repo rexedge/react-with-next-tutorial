@@ -1,0 +1,257 @@
+A component is a function that returns JSX. That is the entire definition.
+
+```tsx
+function Greeting() {
+  return <p>Hello</p>;
+}
+```
+
+You use it like a tag:
+
+```tsx
+const page = <Greeting />;
+```
+
+That is the whole of the idea. Everything else in this lesson is about getting
+data into one.
+
+<Callout variant="warning">
+**The name must start with a capital letter.** `<greeting />` compiles to
+`createElement("greeting")` — a request for an HTML tag of that name, which does
+not exist — while `<Greeting />` passes your function. React uses the case of the
+first letter to tell them apart, so a lowercase component renders nothing and
+usually reports no error.
+</Callout>
+
+## Props
+
+A component that always says the same thing is not much use. Attributes written
+on the tag arrive as a single object:
+
+```tsx
+function Greeting(props) {
+  return <p>Hello, {props.name}</p>;
+}
+
+const page = <Greeting name="Ada" />;
+```
+
+React collects everything you pass into one object — here, `{ name: "Ada" }` —
+and hands it over as the function's only argument. That object is conventionally
+called `props`.
+
+You will rarely see it written that way, though, because destructuring is
+clearer:
+
+```tsx
+function Greeting({ name }) {
+  return <p>Hello, {name}</p>;
+}
+```
+
+This is the line from lesson 1, and now every part of it should be familiar: an
+object argument, taken apart in the signature.
+
+## Typing props
+
+In TypeScript, describe the object:
+
+```tsx
+type GreetingProps = {
+  name: string;
+};
+
+function Greeting({ name }: GreetingProps) {
+  return <p>Hello, {name}</p>;
+}
+```
+
+When the shape is small and used once, write it inline instead of naming it:
+
+```tsx
+function Greeting({ name }: { name: string }) {
+  return <p>Hello, {name}</p>;
+}
+```
+
+Both are common. Name the type when it grows past two or three properties.
+
+This is where TypeScript starts paying you back. Forget a required prop, misspell
+one, or pass a number where a string belongs, and you find out in your editor —
+at the place you made the mistake, not three components deeper when something is
+`undefined`.
+
+## Passing things that are not strings
+
+Strings can use quotes. Everything else needs braces:
+
+```tsx
+type SessionProps = {
+  topic: string;
+  minutes: number;
+  done: boolean;
+  tags: string[];
+};
+
+function Session({ topic, minutes, done, tags }: SessionProps) {
+  return <p>{topic}</p>;
+}
+
+const example = (
+  <Session topic="JSX" minutes={45} done={true} tags={["basics", "syntax"]} />
+);
+```
+
+<Callout variant="gotcha">
+`minutes="45"` passes the **string** `"45"`, not the number. In plain JavaScript
+this silently produces `"45 min"` in some places and `4545` where you expected
+addition. With TypeScript it is an immediate error — one of the clearest examples
+of why this course is typed.
+</Callout>
+
+A boolean prop can be shortened. `done={true}` and `done` mean the same thing:
+
+```tsx
+const shorthand = <Session topic="JSX" minutes={45} done tags={[]} />;
+```
+
+## Optional props and defaults
+
+Mark a prop optional with `?`, and give it a default in the destructuring:
+
+```tsx
+type BadgeProps = {
+  label: string;
+  tone?: "neutral" | "success";
+};
+
+function Badge({ label, tone = "neutral" }: BadgeProps) {
+  return <span className={tone}>{label}</span>;
+}
+```
+
+Now `<Badge label="New" />` works, and `tone` is `"neutral"` inside the function.
+Note that the default lives in the parameter list, not the type — the type says
+*may be absent*, the default says *what to use when it is*.
+
+## children
+
+Content written between an opening and closing tag arrives as a prop called
+`children`:
+
+```tsx
+function Panel({ children }: { children: React.ReactNode }) {
+  return <section className="panel">{children}</section>;
+}
+
+const example = (
+  <Panel>
+    <h2>Sessions</h2>
+    <p>Three of them</p>
+  </Panel>
+);
+```
+
+`React.ReactNode` is the type for "anything React can render" — elements, text,
+numbers, arrays of those, or nothing.
+
+This is what makes components composable rather than just configurable. A `Panel`
+that takes `children` works with any content forever; a `Panel` that takes a
+`text` prop and a `title` prop needs a new prop every time someone wants
+something slightly different.
+
+## Props go one way, and cannot be changed
+
+Two rules, and they are the same rule:
+
+```tsx
+function Greeting({ name }: { name: string }) {
+  name = "someone else"; // Never do this.
+  return <p>Hello, {name}</p>;
+}
+```
+
+A component must not modify its own props. They belong to the parent that passed
+them, and changing your copy fools nobody — the parent still has the original,
+and React has no idea anything happened.
+
+Data flows **down**: a parent gives props to a child, never the reverse. When a
+child needs to cause a change, the parent passes down a function for it to call.
+That pattern is lesson 13, and it is the answer to the question this rule
+naturally raises.
+
+<Callout variant="note">
+A component that is given the same props must return the same JSX, with no side
+effects along the way. React relies on this — it is free to call your component
+whenever it likes, and more than once. Lesson 20 covers what that buys you.
+</Callout>
+
+<DemoLink slug="components-and-props" file="components/demos/components-and-props.tsx" />
+
+<Exercise title="Build a component and reuse it">
+Open `components/demos/components-and-props.tsx`.
+
+1. Add a `SessionCard` for a sixth topic of your choosing.
+
+2. Give one card a `note`, and leave another without one. Confirm the note only
+   appears where you passed it.
+
+3. Now delete `level="easy"` from the first card. Read the error your editor
+   gives you, then put it back.
+
+4. Finally, add a new **optional** prop to `SessionCardProps` called `bookmarked`
+   — a boolean. When it is true, show a star before the topic. Pass it to exactly
+   one card.
+
+For step 4 you will need the `?` from the optional props section, and the
+`note ? ... : null` pattern already in the file.
+</Exercise>
+
+<Solution>
+Step 4, in three edits. The type gains a line:
+
+```tsx no-audit
+type SessionCardProps = {
+  topic: string;
+  minutes: number;
+  level: "easy" | "medium" | "hard";
+  note?: string;
+  bookmarked?: boolean;
+};
+```
+
+The signature picks it up:
+
+```tsx no-audit
+function SessionCard({ topic, minutes, level, note, bookmarked }: SessionCardProps) {
+```
+
+And the heading renders it conditionally:
+
+```tsx no-audit
+<h3 className="font-medium text-zinc-900 dark:text-zinc-100">
+  {bookmarked ? "★ " : ""}
+  {topic}
+</h3>
+```
+
+Then `<SessionCard topic="JSX" minutes={45} level="easy" bookmarked />` on one
+card only.
+
+On **step 3**, the error reads something like:
+
+```
+Property 'level' is missing in type '{ topic: string; minutes: number; }'
+  but required in type 'SessionCardProps'.
+```
+
+That is the error format from the TypeScript primer, now doing real work. It
+appeared as you typed, it names the missing prop, and it points at the exact
+card. Without types, that mistake would have reached the browser as
+`levelStyles[undefined]` and crashed somewhere else entirely — in the component,
+not at the call site that caused it.
+
+Notice also what step 1 did *not* require. You added a card without touching
+`SessionCard`. One definition, five uses, and adding a sixth costs one line —
+which is the reason components exist at all.
+</Solution>

@@ -1,0 +1,332 @@
+You know JavaScript. This lesson is not here to teach it again — it is here to
+close the gap between the JavaScript most people learn first and the JavaScript
+every React example is written in.
+
+That gap is real. If you learned from older material you may have spent most of
+your time with `var`, `function`, string concatenation, and `for` loops. None of
+those are wrong, and none of them have been removed. But React code is written
+almost entirely in a different dialect, and if that dialect is unfamiliar you
+will spend Tier 1 fighting the syntax instead of learning the ideas.
+
+Everything below shows up in the next lesson or the one after. Skim what you
+know, slow down where it looks unfamiliar.
+
+## Arrow functions
+
+A shorter way to write a function.
+
+```js no-audit
+// These three do the same thing. (Only one of them can exist at a time -
+// they are three spellings of the same function, not three functions.)
+function double(n) {
+  return n * 2;
+}
+
+const double = (n) => {
+  return n * 2;
+};
+
+const double = (n) => n * 2;
+```
+
+That last form — no braces, no `return` — is an **implicit return**. The value of
+the expression is returned automatically. You will see it constantly, because
+most arrow functions in React are one-liners passed to something else.
+
+<Callout variant="gotcha">
+Adding braces silently changes the meaning. `(n) => n * 2` returns the number;
+`(n) => { n * 2; }` returns `undefined`, because now it is a function body and
+nothing is returned from it. This produces components that render nothing, and
+the error message will not point here.
+</Callout>
+
+## Template literals
+
+Backticks instead of quotes, with `${}` holes for expressions.
+
+```js
+const name = "Ada";
+const minutes = 45;
+
+const message = `${name} studied for ${minutes} minutes`;
+```
+
+They can also span multiple lines, which plain quotes cannot.
+
+## Destructuring
+
+Pulling values out of an object or array by name, rather than one property at a
+time. This is the single most important item on this page, because **every React
+component you write will destructure its props.**
+
+```js
+const session = { day: "Mon", topic: "JSX", minutes: 45 };
+
+// The long way, one property at a time.
+const topic = session.topic;
+const minutes = session.minutes;
+```
+
+Destructuring does the same thing in one line:
+
+```js
+const { topic, minutes } = session;
+```
+
+The names in the braces are property names, not new inventions — `const { topic }`
+works because the object has a `topic` property. You can rename as you go, and
+supply a default for anything missing:
+
+```js
+const { topic: subject, minutes = 0, tags = [] } = session;
+```
+
+Arrays destructure by position instead of by name:
+
+```js
+const [first, second] = ["JSX", "Props"];
+```
+
+And it works directly in a parameter list, which is where you will meet it most:
+
+```js
+// Reaching into `session` inside the function...
+function describe(session) {
+  return `${session.topic}: ${session.minutes} min`;
+}
+```
+
+...or taking the pieces apart in the signature itself:
+
+```js
+function describeShorter({ topic, minutes }) {
+  return `${topic}: ${minutes} min`;
+}
+```
+
+That second form is exactly the shape of a React component. When you see
+`function Greeting({ name })` in two lessons' time, this is all that is
+happening.
+
+## Spread and rest
+
+Three dots. They do opposite things depending on where they appear.
+
+**Spread** unpacks something into a new thing:
+
+```js
+const base = { day: "Mon", topic: "JSX" };
+const session = { ...base, minutes: 45 };
+// session -> { day: "Mon", topic: "JSX", minutes: 45 }
+```
+
+The same three dots work on arrays:
+
+```js
+const topics = ["JSX", "Props"];
+const more = [...topics, "Routing"];
+// more -> ["JSX", "Props", "Routing"]
+```
+
+Later keys win, so spreading is also how you make a changed copy:
+
+```js
+const finished = { ...session, done: true };
+```
+
+**Rest** collects the leftovers into one variable:
+
+```js
+const { day, ...everythingElse } = session;
+```
+
+<Callout variant="note">
+Spread makes a **shallow** copy. Nested objects are still shared with the
+original. That rarely bites in this course, but it is worth knowing the word.
+</Callout>
+
+## Array methods
+
+Loops still work. But React renders *data*, so most of what you do is turn one
+array into another one, and these read far better than a `for` loop.
+
+```js
+const sessions = [
+  { topic: "JSX", minutes: 45, done: true },
+  { topic: "State", minutes: 60, done: false },
+];
+
+sessions.map((s) => s.topic); // ["JSX", "State"]      - same length, reshaped
+sessions.filter((s) => s.done); // [ {JSX...} ]        - fewer items, unchanged
+sessions.reduce((total, s) => total + s.minutes, 0); // 105 - collapsed to one value
+sessions.find((s) => s.done); // the first match, or undefined
+sessions.some((s) => s.done); // true
+sessions.every((s) => s.done); // false
+```
+
+The three that matter most are `map`, `filter` and `reduce`. `map` is the one
+you will use in literally every list you ever render.
+
+They also chain, because each returns a new array:
+
+```js
+const unfinished = sessions.filter((s) => !s.done).map((s) => s.topic);
+```
+
+<Callout variant="warning">
+`sort` and `reverse` are the exceptions: they **change the array you call them
+on** instead of returning a new one. Copy first — `[...sessions].sort(...)` —
+or you will quietly reorder data that something else is still using.
+</Callout>
+
+## Not changing things
+
+This one is a habit, not a syntax feature, and it is the habit React is built
+around.
+
+Instead of modifying data in place, you make a new value with the change
+included. Compare:
+
+```js
+const topics = ["JSX", "Props"];
+
+// Mutating: changes the array that already exists.
+topics.push("Routing");
+// topics -> ["JSX", "Props", "Routing"]
+```
+
+Or, starting again from the same two-item array:
+
+```js
+const topics = ["JSX", "Props"];
+
+// Not mutating: builds a new array and leaves the original alone.
+const nextTopics = [...topics, "Routing"];
+// topics     -> ["JSX", "Props"]              (untouched)
+// nextTopics -> ["JSX", "Props", "Routing"]
+```
+
+Both end up with "Routing" in a list. Only the second one works with React. The
+reason is genuinely worth waiting for — it is the whole of lesson 11 — but the
+short version is that React decides whether to redraw the screen by checking
+whether it was handed a *different* value. Change an array in place and it is
+still the same array, so nothing happens on screen and you get a component that
+stubbornly refuses to update.
+
+Get in the habit now: **build a new value, do not edit the old one.**
+
+## Optional chaining and nullish coalescing
+
+Two small operators that prevent a very common crash.
+
+```js
+sessions[0].topic; // TypeError if the array is empty
+sessions[0]?.topic; // undefined instead - no crash
+
+const notes = null;
+const label = notes ?? "none"; // use "none" only if null/undefined
+```
+
+`??` is not the same as `||`. `||` also replaces `0` and `""`, which is usually
+not what you meant when counting things.
+
+```js
+0 || 10; // 10  - probably a bug
+0 ?? 10; // 0   - probably what you wanted
+```
+
+## Modules
+
+Splitting code across files. Every file in this project is a module.
+
+```js
+// lib/format.js
+export function formatMinutes(n) {
+  return `${n} min`;
+}
+
+export const DEFAULT_GOAL = 30; // a named export
+
+export default function Timer() {} // the default export - one per file
+```
+
+```js
+// somewhere else
+import Timer, { formatMinutes, DEFAULT_GOAL } from "@/lib/format";
+```
+
+Named exports go in braces, the default export does not. The `@/` prefix is a
+shortcut this project sets up for "from the project root", so you never have to
+write `../../../lib/format`.
+
+## async and await
+
+Anything that takes time — a network request, reading a file — returns a
+**Promise**: a value that is not ready yet.
+
+```js
+async function loadSessions() {
+  const response = await fetch("/api/sessions");
+  const data = await response.json();
+  return data;
+}
+```
+
+`await` pauses inside the function until the Promise resolves. It is only legal
+inside a function marked `async`, and an `async` function always returns a
+Promise itself, even when it looks like it returns a plain value.
+
+You will not need much more than this. In Tier 3 you will find out that Next.js
+lets you `await` directly inside a component, which is a genuinely strange and
+wonderful thing that most React developers still have not gotten used to.
+
+<DemoLink slug="array-methods" file="components/demos/array-methods.tsx" />
+
+<Exercise title="Add a session and derive something new">
+Open `components/demos/array-methods.tsx`.
+
+1. Add a sixth session to the `sessions` array. Save, and watch every result on
+   the demo page change at once — you edited data, not six separate outputs.
+
+2. Now add a new transformation below the others: the **average** session length,
+   rounded. Then render it by copying one of the existing `<Result>` blocks at
+   the bottom of the file.
+
+3. Finally, find the line with `[...sessions]` and delete the `...`, leaving
+   `sessions.sort(...)`. Save, then look at the **"First in the list"** result at
+   the bottom. Put the `...` back when you have seen it.
+</Exercise>
+
+<Solution>
+The average is a `reduce` divided by the length — and you already have the
+`reduce`:
+
+```tsx no-audit
+// `totalMinutes` and `sessions` already exist in the demo file, further up.
+const averageMinutes = Math.round(totalMinutes / sessions.length);
+```
+
+```tsx no-audit
+<Result label="Average session" code="totalMinutes / sessions.length">
+  {averageMinutes} minutes
+</Result>
+```
+
+**Step 3 is the interesting one.** "First in the list" changes from `JSX` to
+`Routing`.
+
+Removing the spread makes `sort` reorder the original `sessions` array in place
+rather than sorting a copy. `firstInList` is computed further down the file, so
+by the time it runs it is reading a differently-ordered array — and it changed
+even though you never touched that line.
+
+Notice what it took to see it. The results computed *above* the sort — the topic
+list, the totals — did not change at all, because they had already run. Only the
+line underneath was affected. A bug that depends on which line came first is a
+genuinely nasty one to track down.
+
+Nothing warned you. No error appeared.
+
+That is the bug that mutation causes, and it is why the habit above matters. In
+React, the same mistake usually shows up as a screen that will not update.
+</Solution>

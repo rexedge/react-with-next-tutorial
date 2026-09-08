@@ -1,0 +1,212 @@
+You often want to show something only sometimes. React has no `<If>` component,
+because it does not need one — you use ordinary JavaScript, with one constraint:
+inside JSX braces you need an **expression**, and `if` is not one.
+
+There are three patterns, and knowing which to reach for is most of this lesson.
+
+## Early return
+
+Outside JSX, `if` works normally. This is the clearest option when a component
+has two genuinely different outputs:
+
+```tsx
+function SessionList({ sessions }: { sessions: string[] }) {
+  if (sessions.length === 0) {
+    return <p>No sessions yet.</p>;
+  }
+
+  return (
+    <ul>
+      {sessions.map((session) => (
+        <li key={session}>{session}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+Handling the empty case first and returning early keeps the main body free of
+nesting. Prefer this whenever the two branches are whole components rather than
+small pieces.
+
+## The ternary
+
+Inside JSX, for choosing between two things:
+
+```tsx
+function Status({ done }: { done: boolean }) {
+  return <p>{done ? "Finished" : "In progress"}</p>;
+}
+```
+
+It works with elements just as well as strings:
+
+```tsx
+function Badge({ done }: { done: boolean }) {
+  return (
+    <div>
+      {done ? <strong>Done</strong> : <em>Pending</em>}
+    </div>
+  );
+}
+```
+
+<Callout variant="tip">
+Resist nesting ternaries inside ternaries. Two levels are readable on a good day;
+three are not. When you reach for a third, that is the signal to pull the logic
+into a variable above the `return`, or into a small component of its own.
+</Callout>
+
+## Logical AND
+
+For showing something **or nothing at all**, the ternary's `: null` half is
+noise. `&&` is shorter:
+
+```tsx
+function Note({ note }: { note?: string }) {
+  return (
+    <div>
+      {note && <p className="note">{note}</p>}
+    </div>
+  );
+}
+```
+
+This works because of how `&&` behaves in JavaScript: if the left side is falsy
+it returns the left side, otherwise it returns the right side. So when `note` is
+`undefined` the expression is `undefined`, and React renders nothing for it —
+the rule from the JSX lesson.
+
+## The zero
+
+This is the single most common bug in React code, and it comes directly from
+that behaviour:
+
+```tsx
+function Count({ sessions }: { sessions: string[] }) {
+  return (
+    <div>
+      {/* When the array is empty, this renders a literal 0 on the page. */}
+      {sessions.length && <p>{sessions.length} sessions</p>}
+    </div>
+  );
+}
+```
+
+When `sessions.length` is `0`, `&&` returns `0`. And `0` is not one of the values
+React skips — numbers render, so a stray `0` appears on screen.
+
+<Callout variant="gotcha">
+`&&` is safe with a real boolean and dangerous with a number. Make the condition
+explicitly boolean and the problem disappears:
+
+`{sessions.length > 0 && <p>...</p>}`
+
+The same trap catches empty strings, which render as nothing and so look like
+they worked, until a value that is *not* empty is falsy for another reason. Get in
+the habit of writing a comparison rather than relying on truthiness.
+</Callout>
+
+## Rendering nothing at all
+
+A component can return `null` when it should not appear:
+
+```tsx
+function Warning({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p role="alert">{message}</p>;
+}
+```
+
+This is a normal, well-behaved thing to do — the component still runs, it simply
+contributes no markup. Returning `null` and returning nothing are different,
+though: a function with no `return` returns `undefined`, which React treats as a
+mistake rather than an intention.
+
+## Choosing between them
+
+A short guide, and it holds up in real code:
+
+| Situation | Use |
+| --- | --- |
+| Two whole different outputs | `if` with an early return |
+| One of two small things, inline | ternary |
+| Something or nothing, inline | `&&` with an explicit boolean |
+| This component should not appear | `return null` |
+
+## Conditional attributes
+
+The same expressions work in attribute position, which is how variable styling
+is usually done:
+
+```tsx
+function Row({ done }: { done: boolean }) {
+  return <li className={done ? "line-through opacity-50" : ""}>Session</li>;
+}
+```
+
+For a boolean attribute, pass the boolean directly:
+
+```tsx
+function Submit({ busy }: { busy: boolean }) {
+  return <button disabled={busy}>Save</button>;
+}
+```
+
+<Exercise title="Three conditions">
+Open `components/demos/why-react.tsx`. It already renders a progress bar and two
+readouts. Add these, in order:
+
+1. **An empty state.** Above the list, show `<p>Nothing tracked yet.</p>` when
+   `sessions` is empty — and hide the whole list and summary in that case. Test it
+   by temporarily setting the initial state to `[]`.
+
+2. **A congratulation.** When every session is done, show a line saying so.
+   `sessions.every((s) => s.done)` gives you the condition.
+
+3. **A count that lies.** Add this line under the progress bar, exactly as
+   written:
+
+   ```tsx no-audit
+   {sessions.filter((s) => !s.done).length && <p>still to do</p>}
+   ```
+
+   Now tick every box. Explain what appears and why, then fix it.
+</Exercise>
+
+<Solution>
+**1.** An early return is the cleanest, because the two outputs are whole
+components:
+
+```tsx no-audit
+if (sessions.length === 0) {
+  return <p className="text-zinc-500">Nothing tracked yet.</p>;
+}
+```
+
+**2.** `&&` with a genuine boolean — `every` returns one, so this is safe:
+
+```tsx no-audit
+{sessions.every((s) => s.done) && (
+  <p className="mt-2 text-center text-xs text-emerald-600">All done. Well played.</p>
+)}
+```
+
+**3.** Tick every box and a bare **`0`** appears on the page.
+
+`sessions.filter((s) => !s.done).length` is `0` once nothing is left to do. `&&`
+returns that `0`, and React renders numbers. There is no error and nothing in the
+console — just a stray digit that appears only in the one state you are least
+likely to test.
+
+The fix is a comparison:
+
+```tsx no-audit
+{sessions.filter((s) => !s.done).length > 0 && <p>still to do</p>}
+```
+
+Worth sitting with for a second: the broken version reads perfectly well in
+English — "if there are sessions to do, show this". It is only wrong because of
+what `&&` returns and what React does with numbers. Two reasonable rules meeting
+at an unreasonable place, which is why this one catches everybody at least once.
+</Solution>

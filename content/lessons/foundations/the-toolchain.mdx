@@ -1,0 +1,216 @@
+Until now, running a website probably meant double-clicking `index.html`, or
+pointing a small server at a folder. The browser read your files directly. What
+you wrote was what ran.
+
+That is no longer true here, and it is worth understanding why before it starts
+feeling like magic. Magic is fine until it breaks.
+
+## Why there is a build step at all
+
+The browser cannot run the code in this project. Three things get in the way:
+
+- **TypeScript.** No browser understands `: string`. It has to be stripped out
+  first.
+- **JSX.** The `<div>` you will write inside a JavaScript file in the next lesson
+  is not JavaScript. It has to be converted into function calls.
+- **Modules and packages.** Your code imports from `react`, which lives in
+  `node_modules` in a layout the browser knows nothing about.
+
+So something has to sit between what you write and what the browser receives. It
+reads your files, transforms them, stitches them together, and produces plain
+JavaScript, CSS and HTML. That something is a **bundler**, and in this project it
+is **Turbopack**, which comes with Next.js. In Next.js 16 it is the default; you
+do not configure it and you will rarely think about it.
+
+## The commands
+
+There are four, and they live in the `scripts` section of `package.json`.
+
+```bash
+pnpm dev     # develop
+pnpm build   # produce the production version
+pnpm start   # run the production version
+pnpm lint    # check the code for problems
+```
+
+### pnpm dev
+
+The one you leave running. It starts a server on `http://localhost:3000` and
+compiles pages **on demand** — a route is built the first time you visit it, not
+before. That is why the very first page load after starting can be slow and every
+one after is quick.
+
+Then it watches your files. When you save, it works out what changed, recompiles
+just that, and pushes it into the page you are already looking at. This is
+**hot reloading**, and it usually preserves what you had typed into a form or
+scrolled to. It is the single biggest reason the demos in this course ask you to
+edit real files.
+
+<Callout variant="tip">
+If the app starts behaving impossibly — a change that will not appear, an error
+about a file you deleted — stop the dev server and start it again. If that does
+not help, delete the `.next` folder and start it again. That fixes a genuinely
+large share of "impossible" problems, and costs twenty seconds.
+</Callout>
+
+### pnpm build
+
+Compiles everything, properly, once. It also does two things `pnpm dev` does not:
+it type-checks the whole project, and it **prerenders** every page it can into
+finished HTML files.
+
+Run it and you will see a summary like this:
+
+```
+✓ Generating static pages using 7 workers (63/63)
+
+Route (app)
+┌ ○ /
+├ ○ /learn
+├   /learn/[module]/[lesson]
+│ ├ ● /learn/foundations/how-this-course-works
+│ └ ● [+55 more paths]
+└ ○ /playground
+```
+
+Every lesson in this course is in that list. They were all turned into HTML at
+build time — which is why this site is fast, and why it would work perfectly well
+on a plain file host with no server running at all.
+
+The symbols matter, and you will see them in every Next.js project:
+
+- `○` **Static** — one fixed page, prerendered.
+- `●` **SSG** — a dynamic route like `/learn/[module]/[lesson]`, prerendered once
+  per real value. Fifty-six lessons, fifty-six HTML files.
+
+You will meet more of these symbols in Tier 3, when pages start being rendered
+per request instead.
+
+### pnpm start
+
+Serves what `pnpm build` produced. This is what runs in production, and it does
+**not** watch your files — editing something changes nothing until you build
+again.
+
+Use `dev` for working. Use `build` then `start` only when you want to check
+something behaves the same in production.
+
+### pnpm lint
+
+Runs ESLint over the project, looking for likely mistakes rather than broken
+syntax. It is worth running before you commit.
+
+<Callout variant="note">
+In older Next.js this was `next lint`. That command was **removed** in version
+16, which is why the script here is just `eslint`. If you follow a tutorial that
+tells you to run `next lint`, it predates this version — a useful signal that
+other things in it may be out of date too.
+</Callout>
+
+## pnpm, package.json, and node_modules
+
+**`package.json`** lists what the project depends on and defines those four
+commands. It is the file you look at first in any unfamiliar project.
+
+**`node_modules/`** is where those dependencies actually live. It is enormous, it
+is generated, and it is never committed — `.gitignore` excludes it. If it is
+missing or looks corrupt, `pnpm install` rebuilds it from scratch.
+
+**`pnpm-lock.yaml`** records the exact version of every package installed,
+including the dependencies of your dependencies. It *is* committed. It is what
+makes an install on another machine produce the same thing rather than something
+almost the same.
+
+This project uses **pnpm** rather than npm. They do the same job; pnpm is
+faster and stores packages once on your machine instead of once per project. The
+practical consequence for you is a single rule: use `pnpm`, not `npm`, or you
+will end up with two lockfiles disagreeing with each other.
+
+<Callout variant="warning">
+The `README.md` at the root of this project still says `npm run dev`. It is
+untouched boilerplate from `create-next-app` and it is wrong for this project.
+Real codebases are full of this — documentation drifts out of date, and
+`package.json` is the thing that tells the truth.
+</Callout>
+
+## A tour of the root
+
+Every file at the top of the project, and what it is for:
+
+| File | What it does |
+| --- | --- |
+| `package.json` | Dependencies and the commands above |
+| `pnpm-lock.yaml` | Exact installed versions — committed |
+| `next.config.ts` | Next.js settings; here, the MDX setup for lessons |
+| `tsconfig.json` | TypeScript settings, including the `@/` import shortcut |
+| `eslint.config.mjs` | Lint rules |
+| `postcss.config.mjs` | Hooks Tailwind into the CSS build |
+| `mdx-components.tsx` | Components lessons can use without importing |
+| `.gitignore` | What git ignores — `node_modules`, `.next`, `.env*` |
+| `.next/` | Build output. Generated, ignored, safe to delete |
+
+You will barely touch most of these. They are worth recognising so that an
+unfamiliar filename is not alarming.
+
+<Callout variant="gotcha">
+`.gitignore` excludes `.env*` — files holding passwords and API keys. That is
+deliberate and you should leave it alone. Committing a secret to git is
+genuinely hard to undo, because it stays in the history after you delete it.
+This becomes real in Tier 4.
+</Callout>
+
+## Where this is going
+
+That is the whole toolchain. Four commands, a config file you rarely open, and a
+bundler you never call directly.
+
+Tier 0 is done. You have the JavaScript, you have enough TypeScript to read the
+code, and you know what happens when you press save.
+
+Next you find out what React is actually for — starting, fairly, with the case
+against using it at all.
+
+<Exercise title="Prove the pages are already written">
+Stop the dev server, then run:
+
+```bash
+pnpm build
+```
+
+Read the route table it prints. Find `/learn/foundations/the-toolchain` — this
+page — in the list.
+
+Now open the file the build produced. From the project root:
+
+```bash
+.next/server/app/learn/foundations/the-toolchain.html
+```
+
+Open that in your editor. Search it for a sentence from this lesson.
+
+Then answer: how much work does the server do when someone visits this page?
+</Exercise>
+
+<Solution>
+Almost none. It sends a file that already existed.
+
+The entire lesson — this paragraph included — was turned into HTML while
+`pnpm build` ran, well before anyone asked for it. There is no database query
+when you load this page, no rendering, no template being filled in. A file is
+read and sent.
+
+That is what `●` meant in the route table, and it is why the whole course could
+be hosted on anything that can serve files.
+
+Two things follow that are worth carrying into Tier 2:
+
+- The HTML arrives complete, so the page is readable before any JavaScript runs.
+  Search engines and slow connections both get the content.
+- It was built from `content/curriculum.ts` and an MDX file at *build* time, so
+  changing a lesson requires a rebuild. That is the trade, and it is the right
+  one for a course. It would be the wrong one for a page showing today's prices.
+
+Deciding which pages work this way, and which are rendered fresh for every
+visitor, is a large part of what Next.js is for. You will spend Tier 3 on exactly
+that question.
+</Solution>

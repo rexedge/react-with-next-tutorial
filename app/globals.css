@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 :root {
   --background: #ffffff;
@@ -22,5 +23,29 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * rehype-pretty-code emits highlighted tokens with inline colours for a dark
+ * theme, so code blocks keep their own background in both colour schemes rather
+ * than inheriting the prose one.
+ */
+.prose pre {
+  background-color: #22272e;
+  color: #adbac7;
+  overflow-x: auto;
+}
+
+.prose :not(pre) > code {
+  background-color: color-mix(in oklab, currentColor 8%, transparent);
+  border-radius: 0.25rem;
+  padding: 0.15em 0.35em;
+  font-weight: 500;
+}
+
+/* The typography plugin adds quotes around inline code; they read as noise. */
+.prose :not(pre) > code::before,
+.prose :not(pre) > code::after {
+  content: none;
 }

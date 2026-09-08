@@ -1,0 +1,287 @@
+Every code sample in this course is TypeScript. This lesson teaches exactly as
+much of it as you need to read them — and then stops.
+
+That limit is deliberate. TypeScript is a large language with corners that take
+years to need. You are here to learn React, and TypeScript is a tool that will
+make learning React faster, not a second subject to master first. When you meet
+something in this course that this lesson did not cover, that is worth
+mentioning, not worth panicking about.
+
+## What TypeScript actually is
+
+TypeScript is JavaScript with notes about what kind of value each thing holds.
+
+```ts
+let topic: string = "JSX";
+let minutes: number = 45;
+let done: boolean = false;
+```
+
+Those notes are checked by your editor as you type. Then they are **deleted**.
+The browser never sees them; the file that ships is ordinary JavaScript with the
+annotations stripped out.
+
+Two consequences follow, and both matter:
+
+- TypeScript can tell you about a mistake before you run anything. This is the
+  benefit, and it is a large one.
+- TypeScript cannot check anything at runtime. If a server sends you data of the
+  wrong shape, TypeScript will not notice — it already left. Types describe what
+  you *believe*, and are only as honest as you are.
+
+## You usually do not write the type
+
+The annotations above are all unnecessary. TypeScript reads the value and works
+it out:
+
+```ts
+let topic = "JSX"; // TypeScript already knows: string
+```
+
+This is **inference**, and it does most of the work. Hover over a variable in
+your editor and you will see the type it inferred, even though nothing was
+written down.
+
+So when do you annotate? Mostly in one place: **the inputs to a function.**
+TypeScript cannot guess what callers will pass, so you tell it.
+
+```ts
+function formatMinutes(n: number) {
+  return `${n} min`;
+}
+```
+
+The return type is inferred (`string`), so it is not written. Annotate what goes
+in; let TypeScript figure out what comes out.
+
+<Callout variant="tip">
+If you are ever unsure what type something has, hover over it in your editor.
+That habit will teach you more TypeScript than any article, and it is the main
+reason this course uses it from the beginning.
+</Callout>
+
+## Arrays
+
+Square brackets after the type.
+
+```ts
+const topics: string[] = ["JSX", "Props"];
+const minutes: number[] = [45, 30];
+```
+
+The empty array is the one case where the annotation earns its keep — there is
+nothing in it to infer from.
+
+```ts
+const withoutAnnotation = []; // any[] - TypeScript has no idea, and cannot help
+const withAnnotation: string[] = []; // string[] - now it can
+```
+
+## Describing an object
+
+This is the shape you will write most often, because component props are objects.
+
+```ts
+type Session = {
+  day: string;
+  topic: string;
+  minutes: number;
+  done: boolean;
+};
+
+const monday: Session = {
+  day: "Mon",
+  topic: "JSX",
+  minutes: 45,
+  done: true,
+};
+```
+
+`type` gives a name to a shape. Now `Session` can be used anywhere a type is
+expected — including in an array, `Session[]`, which is the type of the demo data
+in the last lesson.
+
+A property can be optional with `?`:
+
+```ts
+type Session = {
+  day: string;
+  topic: string;
+  minutes: number;
+  done: boolean;
+  notes?: string; // string | undefined - may be absent entirely
+};
+```
+
+<Callout variant="note">
+You will also see `interface Session { ... }` in other people's code. For
+describing an object shape the two are close to interchangeable. This course uses
+`type` everywhere, because it also handles the unions below and one consistent
+keyword is one less thing to think about.
+</Callout>
+
+## Unions
+
+A value that can be one of several types. The vertical bar reads as "or".
+
+```ts
+let id: string | number;
+let notes: string | null;
+```
+
+The genuinely useful version restricts a value to specific *strings*:
+
+```ts
+type Status = "published" | "planned";
+```
+
+`Status` is not "any string" — it is those two strings and nothing else. Write
+`"finished"` and your editor objects immediately, listing the options it will
+accept.
+
+This is used all over this project. Look back at `content/curriculum.ts`: the
+`status` of every lesson, and the `kind` of every entry, are both literal unions.
+That is why a typo in the manifest is caught the moment you make it, rather than
+becoming a lesson that silently never renders.
+
+You will use this constantly for component props — a button whose `variant` is
+`"primary" | "secondary"` cannot be given `"primry"`.
+
+## Typing a function's parameters
+
+Put the annotation after the parameter name.
+
+```ts
+function describe(session: Session) {
+  return `${session.topic}: ${session.minutes} min`;
+}
+```
+
+Now combine that with destructuring from the last lesson, because this exact
+combination is what every React component looks like:
+
+```ts
+function describe({ topic, minutes }: Session) {
+  return `${topic}: ${minutes} min`;
+}
+```
+
+Read it in two halves. The braces on the left say *which pieces you want out*.
+The `: Session` on the right says *what the whole thing is*. They are two
+separate ideas that happen to sit next to each other.
+
+Often the shape is only used once, so it is written inline rather than named:
+
+```ts
+function Greeting({ name }: { name: string }) {
+  return `Hello, ${name}`;
+}
+```
+
+That is the line from lesson 1. Taken slowly: this function accepts one object,
+that object has a `name` property which is a string, and we immediately pull
+`name` out of it. Nothing more.
+
+<Callout variant="gotcha">
+`{ name: string }` is a **type**, not an object. The `string` there is not a
+value — you cannot put `"Ada"` in that position. Type annotations and real
+values look alike and live in different worlds, which is the single most
+confusing thing about reading TypeScript at first.
+</Callout>
+
+## any, and why to avoid it
+
+`any` switches the checking off for that value.
+
+```ts
+const data: any = JSON.parse('{ "topic": "JSX" }');
+data.whatever.you.like; // no complaint, no help
+```
+
+It is occasionally the pragmatic answer, but reaching for it to silence an error
+throws away the thing you came for. `unknown` is the honest version: it also
+holds anything, but forces you to check before using it. You will barely need
+either in this course.
+
+## Reading an error message
+
+TypeScript errors are wordy. They are also formulaic, and once you see the
+pattern they get much easier.
+
+```
+Type 'string' is not assignable to type 'number'.
+```
+
+Read it as: **you gave me a `string`, and a `number` was required here.** The
+first type named is what you supplied; the second is what was wanted.
+
+For objects you will see this shape:
+
+```
+Property 'minutes' is missing in type '{ topic: string; }'
+  but required in type 'Session'.
+```
+
+Same idea, more detail: here is what you handed over, here is what was needed,
+here is precisely what is absent. When an error runs long, the first and last
+lines usually carry the whole message.
+
+## What this lesson skipped
+
+So you know these exist and do not think you have missed them: **generics**
+(`Array<T>`), **utility types** (`Partial`, `Pick`, `Omit`), **enums**, **type
+guards**, **classes**. All real, none needed yet. You will meet generics briefly
+in Tier 2 — `PageProps<'/learn/[module]'>` is one — and by then it will be a small
+addition rather than a new subject.
+
+## One thing about this project
+
+Next.js generates types for your routes while it runs. On a fresh checkout, before
+`pnpm dev` or `pnpm build` has run even once, those types do not exist yet and
+your editor will show errors in files that are perfectly fine.
+
+If a file looks catastrophically broken and you have not run anything yet, run the
+dev server before you start debugging.
+
+<Exercise title="Make TypeScript complain, on purpose">
+Deliberately breaking things is the fastest way to learn what the checker is
+watching for. Open `content/curriculum.ts` and find the first lesson entry — the
+one with `slug: "how-this-course-works"`.
+
+Do each of these, read the error your editor shows, then **undo it before moving
+on**:
+
+1. Change `status: "published"` to `status: "finished"`.
+2. Delete the whole `title:` line.
+3. Change `objectives:` to a plain string instead of an array — `objectives: "Run the app"`.
+4. Add a property that does not exist: `difficulty: "easy"`.
+
+For each one, before you look at the error, predict what it will say.
+</Exercise>
+
+<Solution>
+1. `Type '"finished"' is not assignable to type 'LessonStatus'.` — `LessonStatus`
+   is the literal union `"published" | "planned"`, so those are the only two
+   strings that fit. Your editor will usually offer both.
+
+2. `Property 'title' is missing in type ... but required in type 'Lesson'.`
+   `title` has no `?`, so it is not optional.
+
+3. `Type 'string' is not assignable to type 'string[]'.` — a string and an array
+   of strings are different types, even though the array holds strings.
+
+4. `Object literal may only specify known properties, and 'difficulty' does not
+   exist in type 'Lesson'.` This one surprises people: TypeScript objects to
+   *extra* properties, not just missing ones. It is trying to catch typos —
+   without this check, writing `titel:` would silently create a new property and
+   leave `title` missing.
+
+All four errors came from one `type Lesson` declaration at the top of the file.
+That is the trade: you describe a shape once, and every use of it is checked for
+free, forever.
+
+Worth noticing what did **not** happen — you never ran the app. No page was
+loaded, no build ran. The mistakes were caught while typing. Multiply that by
+every component you are about to write and you have the reason this course is in
+TypeScript.
+</Solution>

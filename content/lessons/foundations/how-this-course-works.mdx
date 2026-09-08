@@ -1,0 +1,132 @@
+You already know how to build a web page. You can write the markup, style it, and
+make it do something when a button is clicked. That is genuinely most of the way
+there, and everything in this course builds on it rather than replacing it.
+
+What you are here for is the next problem: what happens when the page gets big.
+When there are forty buttons, when clicking one has to update three other places
+on the screen, when the data comes from a server, and when getting it wrong means
+the interface quietly falls out of sync with itself. React exists for that
+problem. Next.js exists for the problems that show up once React alone is not
+enough.
+
+## The loop
+
+Every lesson follows the same four steps. It is worth knowing them now, because
+you are going to repeat this about sixty times.
+
+**Read.** The lesson explains one idea and shows it in code. Lessons are short on
+purpose. If a page feels like it is teaching two things, that is a bug — tell me
+and I will split it.
+
+**Run it.** Most lessons link to a live demo under `/playground`. That is a real
+page in this app, rendering real components.
+
+**Edit it.** The demo is not a video and not a screenshot. It is a file in
+`components/demos/`, and the lesson tells you which one. Open it in your editor,
+change something, save, and watch the browser update. Breaking a demo is the
+single fastest way to understand it, and you can always undo.
+
+**Prove it.** Each lesson ends with an exercise. There is a solution behind a
+toggle. Write your own version first — reading a solution feels like learning in
+a way that is very hard to distinguish from actually learning, right up until you
+try to do it yourself.
+
+<Callout variant="tip">
+When you finish a lesson, hit **Mark complete** at the bottom. Progress is saved
+in your browser only. There is no account and nothing is uploaded, so the course
+works on a plane.
+</Callout>
+
+## Running the app
+
+You are reading this, so it is already running. For reference, the command is:
+
+```bash
+pnpm dev
+```
+
+This project uses **pnpm**, not npm. The `README.md` still says npm because it is
+untouched boilerplate from `create-next-app`; ignore it.
+
+Leave the dev server running the whole time you work. When you save a file, it
+reloads that part of the page in place, usually without losing what you had typed
+into a form. You will stop noticing it after a day, which is the point.
+
+## Where things live
+
+You will be opening these folders constantly, so here they are up front.
+
+| Folder | What is in it |
+| --- | --- |
+| `content/lessons/` | The lesson text — including this page |
+| `components/demos/` | The demos you edit |
+| `app/` | The routes of this site |
+| `content/curriculum.ts` | The list of every lesson, in order |
+
+That last one is worth a look right now, even though you will not understand all
+of it yet. Open `content/curriculum.ts`. It is a plain TypeScript file listing
+every lesson in this course, and the sidebar you see on the left is generated
+from it. Nothing is hardcoded twice.
+
+You are not expected to follow the syntax yet — that is lesson 3. Look at the
+shape of it. Notice that the course is data, and the page is a function of that
+data. That idea is the whole of React, arriving three lessons early.
+
+## A word about TypeScript
+
+Every code sample in this course is TypeScript. You will see annotations like
+this from the very first React lesson:
+
+```tsx
+function Greeting({ name }: { name: string }) {
+  return <p>Hello, {name}</p>;
+}
+```
+
+If `: { name: string }` looks like noise right now, that is the correct reaction.
+Lesson 3 is a TypeScript primer that teaches exactly as much as this course
+needs — no more. You do not need to know TypeScript before starting it, and you
+are not expected to learn the whole language.
+
+The reason for teaching it from the start rather than bolting it on later: every
+Next.js example you will ever read online is written in TypeScript, and the
+editor's red squiggles are the single best teacher of React's rules that exists.
+When you pass the wrong thing to a component, you find out immediately, in your
+editor, instead of ten minutes later in the browser.
+
+<Callout variant="warning">
+There is one thing to get used to: your editor will show type errors on a fresh
+checkout until you have run `pnpm dev` or `pnpm build` at least once. Next.js
+generates types for your routes as it runs, and they do not exist before the
+first run. If the whole file looks broken, run the dev server before you start
+debugging.
+</Callout>
+
+## How long this takes
+
+Fifty-three lessons and three projects. If you do one lesson a day you will finish
+in about two months. If you do three or four on a weekend you will move faster,
+but Tier 1 is worth slowing down for — React's model is the thing that everything
+else stands on, and going quickly through it tends to mean going twice.
+
+The tiers are ordered as a dependency chain, not by difficulty. Do them in order.
+
+<Exercise title="Change something and prove the loop works">
+Open `content/curriculum.ts` in your editor and find the entry for this lesson —
+search for `how-this-course-works`.
+
+Change its `title` to something else. Save the file, and look at the sidebar.
+
+Then change it back.
+</Exercise>
+
+<Solution>
+The title in the sidebar, the heading at the top of this page, and the browser
+tab title all changed together, because all three read from the same entry in
+`content/curriculum.ts`.
+
+That is the payoff of keeping the course as data in one file. It is also a
+preview of what you will spend Tier 1 learning to do deliberately: describe what
+the UI should look like for some data, and let React work out what to change on
+screen.
+</Solution>

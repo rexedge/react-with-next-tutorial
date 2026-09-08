@@ -1,0 +1,243 @@
+In the last lesson you saw markup sitting inside a JavaScript file:
+
+```jsx
+return <p>45 min studied</p>;
+```
+
+That is **JSX**. It looks like HTML, and it is close enough that you can mostly
+write what you already know. The differences are few, but they are the source of
+almost every error a beginner hits in their first week, so they are worth
+meeting deliberately rather than by accident.
+
+## JSX is not HTML, and it is not a string
+
+It is syntax that gets **compiled away**. This:
+
+```jsx
+const heading = <h1 className="title">Sessions</h1>;
+```
+
+becomes roughly this before the browser sees it:
+
+```js
+const heading = React.createElement("h1", { className: "title" }, "Sessions");
+```
+
+That is the whole trick. JSX is a nicer way to write function calls that build a
+description of some UI. The object it produces is just data — a plain
+description of what should appear, which React can compare against what is
+currently on screen.
+
+Two useful consequences follow:
+
+- JSX is an **expression**. You can put it in a variable, return it from a
+  function, or hold an array of it — anywhere a value is allowed.
+- Anything not valid as a function call cannot be expressed. That is where the
+  rules below come from; they are not arbitrary style choices.
+
+## Curly braces embed JavaScript
+
+To put a value into JSX, wrap it in braces:
+
+```jsx
+const topic = "JSX";
+const minutes = 45;
+
+const card = (
+  <p>
+    {topic} took {minutes} minutes
+  </p>
+);
+```
+
+Braces also work in attributes:
+
+```jsx
+const url = "/learn";
+const link = <a href={url}>Go</a>;
+```
+
+Note the difference: `href="/learn"` passes the literal string, `href={url}`
+passes the value of the variable. Quotes for text, braces for JavaScript.
+
+What goes inside the braces must be an **expression** — something that produces a
+value. `topic.toUpperCase()`, `a + b`, and `list.map(...)` all work. An `if`
+statement or a `for` loop does not, because those do not produce a value. The
+next two lessons are largely about working around that.
+
+<Callout variant="gotcha">
+`style` takes an object, not a string, so it needs two sets of braces:
+`style={{ width: "50%" }}`. The outer pair means "JavaScript goes here", the
+inner pair is the object itself. It looks like strange syntax and is really just
+two ordinary things stacked.
+</Callout>
+
+## The attribute names that changed
+
+A small list, and it covers nearly everything you will hit:
+
+| HTML | JSX | Why |
+| --- | --- | --- |
+| `class` | `className` | `class` is a reserved word in JavaScript |
+| `for` | `htmlFor` | `for` is a reserved word too |
+| `onclick` | `onClick` | Event handlers are camelCase |
+| `tabindex` | `tabIndex` | Multi-word attributes are camelCase |
+| `style="..."` | `style={...}` | Takes an object, not a string |
+
+`data-` and `aria-` attributes are the exception — they keep their dashes and
+work exactly as they do in HTML.
+
+## One root element
+
+A component returns **one** thing, because a function returns one value. This is
+an error:
+
+```jsx no-audit
+// Two elements at the top level - not allowed.
+return (
+  <h1>Sessions</h1>
+  <p>Three of them</p>
+);
+```
+
+Wrap them. A `<div>` works, but adds an element to the page for no reason. When
+you do not want that, use a **fragment** — an empty tag pair:
+
+```jsx
+const content = (
+  <>
+    <h1>Sessions</h1>
+    <p>Three of them</p>
+  </>
+);
+```
+
+A fragment groups children without producing any markup of its own.
+
+## Every tag closes
+
+HTML forgives an unclosed `<br>` or `<img>`. JSX does not — it compiles to
+function calls, and a call has to end.
+
+```jsx
+const line = <br />;
+const logo = <img src="/next.svg" alt="Next.js" />;
+const box = <div className="p-4" />;
+```
+
+The trailing slash is required on anything without children.
+
+## Parentheses and returns
+
+When JSX spans several lines, wrap it in parentheses:
+
+```jsx
+function Heading() {
+  return (
+    <header>
+      <h1>Sessions</h1>
+    </header>
+  );
+}
+```
+
+<Callout variant="warning">
+Without the parentheses, this breaks — and in a way that gives no useful error.
+JavaScript inserts a semicolon after a bare `return`, so `return` followed by a
+newline returns `undefined` and your markup becomes unreachable code. Either keep
+the opening tag on the same line as `return`, or use parentheses. Parentheses are
+the convention.
+</Callout>
+
+## What actually renders
+
+Values behave differently inside braces, and knowing which is which prevents a
+lot of confusion:
+
+```jsx
+const examples = (
+  <div>
+    {"text"} {/* renders: text */}
+    {42} {/* renders: 42 */}
+    {null} {/* renders nothing */}
+    {undefined} {/* renders nothing */}
+    {true} {/* renders nothing */}
+    {["a", "b"]} {/* renders: ab */}
+  </div>
+);
+```
+
+`null`, `undefined` and booleans rendering nothing is deliberate, and it is what
+makes the conditional patterns in lesson 9 work.
+
+## Comments
+
+Inside JSX, a comment is a JavaScript comment in braces:
+
+```jsx
+const page = (
+  <div>
+    {/* This is how you comment inside JSX. */}
+    <p>Visible</p>
+  </div>
+);
+```
+
+An ordinary `// comment` inside JSX would be rendered as text, since JSX treats
+anything outside braces as content.
+
+<Exercise title="Fix the broken JSX">
+Five things are wrong with this component. Find them all before reading on —
+write out the corrected version.
+
+```jsx no-audit
+function SessionCard() {
+  const topic = "JSX";
+  const minutes = 45;
+
+  return
+    <div class="card">
+      <h3>topic</h3>
+      <p>minutes minutes long</p>
+      <hr>
+    </div>
+    <footer>Keep going</footer>;
+}
+```
+</Exercise>
+
+<Solution>
+```jsx
+function SessionCard() {
+  const topic = "JSX";
+  const minutes = 45;
+
+  return (
+    <>
+      <div className="card">
+        <h3>{topic}</h3>
+        <p>{minutes} minutes long</p>
+        <hr />
+      </div>
+      <footer>Keep going</footer>
+    </>
+  );
+}
+```
+
+The five:
+
+1. **`return` on its own line** with the markup below it. A semicolon is inserted
+   automatically, so the function returns `undefined`. Parentheses fix it.
+2. **`class`** should be `className`.
+3. **`topic` and `minutes` without braces** render as the literal words "topic"
+   and "minutes". No error — just the wrong text on screen, which is the harder
+   kind of mistake.
+4. **`<hr>` is not closed.** It needs `<hr />`.
+5. **Two elements at the top level.** The `<div>` and the `<footer>` need a
+   wrapper; a fragment adds no markup.
+
+Number 3 is the one worth remembering. The other four stop the app from
+building, so you find them in seconds. That one builds perfectly and renders the
+wrong thing.
+</Solution>

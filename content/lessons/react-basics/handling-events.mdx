@@ -1,0 +1,227 @@
+You know `addEventListener`. In React you will almost never call it. Instead you
+pass a function as a prop, and React handles the wiring:
+
+```tsx
+function SaveButton() {
+  function handleClick() {
+    console.log("saved");
+  }
+
+  return <button onClick={handleClick}>Save</button>;
+}
+```
+
+No `querySelector`, no `addEventListener`, and nothing to remove when the
+component disappears. The handler is written next to the markup that uses it,
+which is the same instinct as an `onclick` attribute — with the difference that
+this is a real function reference, not a string of code.
+
+## The names
+
+Event props are the HTML event names, camelCased and prefixed with `on`:
+
+| DOM | React |
+| --- | --- |
+| `click` | `onClick` |
+| `input` | `onChange` |
+| `submit` | `onSubmit` |
+| `focus` / `blur` | `onFocus` / `onBlur` |
+| `keydown` | `onKeyDown` |
+| `mouseenter` | `onMouseEnter` |
+
+<Callout variant="note">
+React's `onChange` on a text input fires on **every keystroke**, unlike the DOM
+`change` event which waits until the field loses focus. It behaves the way most
+people expect `oninput` to behave. This matters in lesson 12, when inputs get
+wired to state.
+</Callout>
+
+## Pass the function, do not call it
+
+The most common mistake in this lesson, and it is worth its own section:
+
+```tsx
+function Buttons() {
+  function handleClick() {
+    console.log("clicked");
+  }
+
+  return (
+    <div>
+      <button onClick={handleClick}>Correct</button>
+      <button onClick={handleClick()}>Wrong</button>
+    </div>
+  );
+}
+```
+
+`onClick={handleClick}` hands React the function, to be called later when a click
+happens. `onClick={handleClick()}` **calls it immediately**, during render, and
+gives React whatever it returned — usually `undefined`.
+
+The symptom is distinctive: the handler runs once when the page loads and never
+runs again when you click. If you ever see that, look for a stray pair of
+parentheses.
+
+## Passing arguments
+
+Which raises a problem — what if the handler needs an argument? You cannot write
+`onClick={toggle(session.id)}`, because that calls it. Wrap it in an arrow
+function instead:
+
+```tsx
+function Row({ id, onToggle }: { id: number; onToggle: (id: number) => void }) {
+  return <button onClick={() => onToggle(id)}>Toggle</button>;
+}
+```
+
+Now the prop is a function, as required. When the click happens, React calls it,
+and *it* calls `onToggle` with the id. This is the pattern used in the demo from
+lesson 5, and it is everywhere in React code.
+
+## The event object
+
+Handlers receive an event, much like the DOM one:
+
+```tsx
+function Field() {
+  function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
+    console.log(event.target.value);
+  }
+
+  return <input onChange={handleChange} />;
+}
+```
+
+That type annotation looks heavy. In practice you rarely write it, because
+TypeScript infers it when the handler is defined inline:
+
+```tsx
+function Field() {
+  return <input onChange={(event) => console.log(event.target.value)} />;
+}
+```
+
+Here `event` is already correctly typed — hover it and you will see. Write the
+handler inline when it is short, and annotate only when you pull it out into a
+named function.
+
+<Callout variant="tip">
+The types follow a pattern: `React.ChangeEvent<HTMLInputElement>`,
+`React.MouseEvent<HTMLButtonElement>`, `React.FormEvent<HTMLFormElement>`. The
+event kind, then the element it happened on. You do not need to memorise them —
+let the editor tell you, or let inference do the work.
+</Callout>
+
+## preventDefault
+
+Forms still try to submit and reload the page. Stop them the usual way:
+
+```tsx
+function SearchForm() {
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    console.log("searching");
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="q" />
+      <button type="submit">Search</button>
+    </form>
+  );
+}
+```
+
+Put `onSubmit` on the `<form>`, not `onClick` on the button. That way the Enter
+key works, which it will not if you only handle the click.
+
+<Callout variant="warning">
+Returning `false` from a handler does nothing in React, whatever old jQuery
+tutorials say. `preventDefault()` is the only way.
+</Callout>
+
+## Events on your own components
+
+`onClick` is only special on real DOM elements. On a component you wrote, it is
+an ordinary prop with no built-in meaning:
+
+```tsx
+function Card({ onSelect }: { onSelect: () => void }) {
+  // This does nothing on its own - it has to be attached to something real.
+  return <div onClick={onSelect}>Pick me</div>;
+}
+```
+
+The convention is to name such props `onSomething` and the functions that
+implement them `handleSomething`. It is only a convention, but it is followed
+almost universally, and it makes the direction obvious: `on*` props travel down,
+`handle*` functions live where the work happens.
+
+This is also the mechanism that answers the question left open in lesson 7. Props
+flow down and cannot be changed by the child — so when a child needs something to
+change, the parent passes down a function, and the child calls it. Nothing flows
+upward except a phone call.
+
+<Exercise title="Wire up three handlers">
+Open `components/demos/why-react.tsx`.
+
+1. Add a **"Mark all done"** button above the list. Clicking it should set every
+   session's `done` to `true`. You want `sessions.map` with a spread, exactly like
+   `toggle` — build a new array, do not edit the old one.
+
+2. Add a **"Reset"** button next to it that sets every session back to
+   `done: false`.
+
+3. Now break it on purpose: change your first button to
+   `onClick={markAllDone()}`. Reload the page and watch what happens before you
+   click anything. Then fix it and explain the symptom.
+</Exercise>
+
+<Solution>
+**1 and 2** are the same shape. Both build a new array rather than modifying the
+existing one:
+
+```tsx no-audit
+function markAllDone() {
+  setSessions(sessions.map((session) => ({ ...session, done: true })));
+}
+
+function reset() {
+  setSessions(sessions.map((session) => ({ ...session, done: false })));
+}
+```
+
+```tsx no-audit
+<div className="mb-4 flex gap-2">
+  <button onClick={markAllDone} className="rounded border px-3 py-1 text-sm">
+    Mark all done
+  </button>
+  <button onClick={reset} className="rounded border px-3 py-1 text-sm">
+    Reset
+  </button>
+</div>
+```
+
+Note the parentheses in `({ ...session, done: true })`. Without them, the arrow
+function's braces would be read as a function body rather than an object, and it
+would return `undefined` — the Tier 0 gotcha, now costing you a whole list.
+
+**3.** Adding `()` runs `markAllDone` during render, which calls `setSessions`,
+which asks React to render again, which runs it again. React stops it with:
+
+```
+Too many re-renders. React limits the number of renders to prevent an infinite loop.
+```
+
+A harmless-looking pair of parentheses produced an infinite loop before you
+touched anything. When a handler seems to fire on load rather than on click —
+or the page dies on arrival with that message — this is nearly always the cause.
+
+That completes the syntax. You can build components, give them data, render
+lists, branch, and respond to clicks. Everything so far has been static: the data
+was fixed when the page loaded, and `useState` in the demos has been quietly
+doing work you were told to ignore.
+
+That ends now. The next tier is state.
+</Solution>

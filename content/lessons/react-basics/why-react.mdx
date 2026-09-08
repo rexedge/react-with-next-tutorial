@@ -1,0 +1,203 @@
+Before learning a tool, it is worth being clear about what it is for. React is
+not obviously a good idea — it adds a build step, a mental model, and about
+forty kilobytes to your page. If you cannot say what you are buying with that,
+you will use it badly.
+
+So here is the problem it solves, built once without React and once with.
+
+## The feature
+
+A study tracker. Three sessions, each with a checkbox. Below the list: how many
+are done, how many minutes that adds up to, and a progress bar.
+
+Four things on screen. One underlying fact — which sessions are done.
+
+## Without React
+
+The markup is straightforward:
+
+```html
+<ul id="list">
+  <li id="item-1"><input type="checkbox" checked /> JSX <span>45 min</span></li>
+  <li id="item-2"><input type="checkbox" /> Props <span>30 min</span></li>
+  <li id="item-3"><input type="checkbox" /> State <span>60 min</span></li>
+</ul>
+
+<p id="count"></p>
+<p id="minutes"></p>
+<div id="bar"></div>
+```
+
+And the behaviour:
+
+```js
+const sessions = [
+  { id: 1, topic: "JSX", minutes: 45, done: true },
+  { id: 2, topic: "Props", minutes: 30, done: false },
+  { id: 3, topic: "State", minutes: 60, done: false },
+];
+
+const countEl = document.querySelector("#count");
+const minutesEl = document.querySelector("#minutes");
+const barEl = document.querySelector("#bar");
+
+function toggle(id) {
+  const session = sessions.find((s) => s.id === id);
+  session.done = !session.done;
+
+  // The data changed. Now go and update every place that displays it.
+  document.querySelector(`#item-${id}`).classList.toggle("done");
+
+  const done = sessions.filter((s) => s.done);
+  countEl.textContent = `${done.length} of ${sessions.length} done`;
+  minutesEl.textContent = `${done.reduce((t, s) => t + s.minutes, 0)} min studied`;
+  barEl.style.width = `${Math.round((done.length / sessions.length) * 100)}%`;
+}
+```
+
+There is nothing wrong with this code. It works, it is readable, and it is
+roughly what you would have written last month.
+
+Look at what `toggle` is actually doing, though. One line changes the data. The
+other four exist only to drag the screen back into agreement with it.
+
+## Where it goes wrong
+
+Now your designer asks for one more thing: show the longest unfinished topic.
+
+You add the element, you write the code that fills it — and you must also
+remember to add a **fifth update** inside `toggle`. Nothing tells you to. No
+error appears if you forget. The page simply shows a value that was true a
+moment ago and is not true now.
+
+Then a "clear all" button arrives, and a "mark all done", and each one needs its
+own copy of those five updates. Miss one combination and you have a bug that
+only appears after a particular sequence of clicks — the kind that is
+genuinely hard to reproduce and worse to find.
+
+<Callout variant="note">
+This is the actual problem. Not that DOM code is ugly, or that there is a lot of
+it, but that **the number of ways for the screen to disagree with the data grows
+faster than the app does.** Every new display and every new action multiply
+together.
+</Callout>
+
+## With React
+
+React proposes something different. Instead of writing instructions for changing
+the screen, you write a description of what the screen should look like for a
+given set of data:
+
+```jsx
+const done = sessions.filter((s) => s.done);
+
+return (
+  <div>
+    <p>{done.length} of {sessions.length} done</p>
+    <p>{done.reduce((t, s) => t + s.minutes, 0)} min studied</p>
+    <div style={{ width: `${Math.round((done.length / sessions.length) * 100)}%` }} />
+  </div>
+);
+```
+
+There are no update instructions here. Nothing says "when a checkbox changes, go
+and set the text of that paragraph". The description says what should be true,
+and React works out what to change in the real page to make it true.
+
+Change the data, and every one of those readouts is recomputed. Not because
+anyone remembered to recompute them — because they were never stored separately
+in the first place.
+
+The whole idea fits in one line:
+
+> **Your UI is a function of your state.**
+
+Give the function the same data and you get the same screen, every time.
+
+<DemoLink slug="why-react" file="components/demos/why-react.tsx" />
+
+You have not been taught any of the syntax in that file yet, and you are not
+meant to understand it line by line. Open it anyway and find the `toggle`
+function. Notice that it changes the data and then stops. There is no list of
+things to update afterwards, because there is nowhere for the screen to be
+stored.
+
+## What this costs
+
+An honest accounting, because React is not free:
+
+- **A build step.** Browsers cannot run this code directly, which is the whole of
+  the last lesson.
+- **A download.** React itself is around 40KB compressed before you write a line.
+- **A new model to learn.** Which is why Tier 1 is the longest tier in this
+  course.
+- **Less direct control.** You describe the result; React decides how to get
+  there. Usually a relief, occasionally a fight.
+
+For a page with one button, this is a bad trade — use plain JavaScript. For a
+page with one interactive widget, still probably not worth it.
+
+The trade turns in React's favour when several parts of the screen depend on the
+same changing data, and it becomes overwhelming somewhere around the point where
+you catch yourself writing a comment like *"remember to also update the counter"*.
+
+<Callout variant="tip">
+The point of this lesson is not that React is better. It is that you should be
+able to say what problem it is solving, so that when someone asks whether a
+project needs it, you have an answer more useful than "everyone uses it".
+</Callout>
+
+## What is next
+
+You now know what React is for. The next four lessons teach the syntax to write
+it: JSX, components, lists, and conditionals. Then state, and the picture closes.
+
+<Exercise title="Add the fifth thing">
+This is the change that broke the vanilla version. Do it in React instead.
+
+Open `components/demos/why-react.tsx`. Add a fifth readout below the progress
+bar: **the number of minutes still remaining** — the total of the sessions that
+are *not* done.
+
+You will need one new calculation and one new line of display. Copy the shape of
+`doneMinutes` for the calculation, and of the paragraph under the progress bar
+for the display.
+
+When it works, tick and untick a few boxes and watch it keep up.
+
+Then answer: how many places did you have to remember to update?
+</Exercise>
+
+<Solution>
+One calculation:
+
+```tsx no-audit
+// Goes next to the other derived values in the demo file.
+const remainingMinutes = sessions
+  .filter((s) => !s.done)
+  .reduce((total, s) => total + s.minutes, 0);
+```
+
+And one line of display:
+
+```tsx no-audit
+<p className="mt-1 text-center text-xs text-zinc-500">
+  {remainingMinutes} min remaining
+</p>
+```
+
+**Zero.** That is the answer to the question.
+
+You added a new thing that depends on the data, and you did not touch `toggle`
+at all. You never went looking for the places that change the sessions to teach
+them about your new paragraph — and there was no opportunity to forget one,
+because there was nothing to remember.
+
+Go back and re-read the vanilla `toggle` above with this in mind. To make the
+same change there, you would edit a function that has nothing to do with
+minutes remaining, purely to tell it that a new part of the page exists.
+
+That is the trade React is offering. You give up direct control over how the
+screen updates, and in exchange the screen stops being something you have to
+keep in sync by hand.
+</Solution>
