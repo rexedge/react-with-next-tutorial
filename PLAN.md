@@ -160,21 +160,33 @@ being an empty shell with sixty stub pages.
 
 ## Status
 
-**Step 1 complete** — the machine works end to end. **Step 2 in progress** — Tier 0 is written.
-
-`pnpm build` renders 63 routes and `pnpm lint` is clean.
+Step 1 is done. **Step 2 is in progress**: Tier 0 is complete and Tier 1 is 6 lessons into 23.
+`pnpm check` (lint + lesson audit + build) passes; 65 routes prerender.
 
 Written so far:
 
-- Tier 0 — *How this course works*, *Modern JavaScript refresher*, *TypeScript primer*,
-  *What the toolchain does*. Tier 0 is done.
+- **Tier 0** — complete. 4 lessons.
+- **Tier 1, React basics** — complete. 6 lessons: *Why React exists*, *JSX*, *Components and props*,
+  *Lists and keys*, *Conditional rendering*, *Handling events*.
 
-The `/playground` route and its registry (`content/demos.ts`) are live, with the first demo -
-`array-methods`, attached to the Modern JavaScript lesson.
+Three demos are live: `array-methods`, `why-react`, `components-and-props`.
 
-The remaining 52 lessons are declared in `content/curriculum.ts` with `status: "planned"` and render
-a stub.
+The remaining 46 entries are declared in `content/curriculum.ts` as `status: "planned"` and render a
+stub.
 
-Next: **Tier 1, React core** — 23 lessons and the first capstone. This is the largest and most
-important tier, starting with *Why React exists*, which needs a two-sided demo (the same feature
-built with DOM manipulation and with React) to make its case honestly.
+Next: **Tier 1, State** — `useState`, controlled inputs, lifting state up, and *Thinking in React*.
+The React basics lessons deliberately end by pointing at it, and the `why-react` demo already uses
+`useState` with a note telling the student to ignore it, so that debt comes due first.
+
+## Writing lessons
+
+The process, in order, learned the hard way:
+
+1. Write the MDX and any demo it needs.
+2. Run `pnpm audit:lessons`. Fix what it finds; exempt only what is genuinely a deliberate fragment.
+3. Read every snippet as if pasting it into a file. The audit does not catch a claim that is merely
+   *wrong* — an exercise once told the student to expect a change that could not happen, because the
+   value was computed above the line they were asked to edit.
+4. Where a lesson asserts an observable outcome, **run it** and confirm, rather than reasoning about
+   it.
+5. Flip `status` to `"published"` in the manifest, then `pnpm check`.

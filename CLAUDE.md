@@ -21,10 +21,12 @@ pnpm is the package manager (`packageManager` field + `pnpm-lock.yaml`). The REA
 because it is unedited `create-next-app` boilerplate — use pnpm.
 
 ```bash
-pnpm dev      # dev server (Turbopack, default in v16) on :3000
-pnpm build    # production build
-pnpm start    # serve the production build
-pnpm lint     # bare `eslint` — see note below
+pnpm dev            # dev server (Turbopack, default in v16) on :3000
+pnpm build          # production build
+pnpm start          # serve the production build
+pnpm lint           # bare `eslint` — see note below
+pnpm audit:lessons  # check the code samples inside lesson MDX
+pnpm check          # lint + audit + build; run this before calling work done
 ```
 
 No test runner is installed. If tests are added, wire the script into `package.json` and record the
@@ -94,6 +96,28 @@ derive from it, and lesson order is array order. Change the manifest, not the pa
 
 `app/learn/layout.tsx` narrows the manifest to a slim nav shape before passing it to the client
 sidebar, so lesson summaries and objectives never reach the browser bundle. Keep that boundary.
+
+## Auditing lesson code
+
+Lesson prose is MDX, so **the code samples inside it are never compiled** — the build cannot catch
+a mistake in them, and a wrong sample is worse than a wrong implementation because the student
+assumes they misunderstood. `scripts/audit-lessons.mjs` parses every fenced block with the
+TypeScript compiler and reports:
+
+- an identifier used but never introduced in that lesson (names accumulate across blocks in reading
+  order, so a later block may use what an earlier one defined);
+- the same name declared twice inside one block;
+- syntax errors.
+
+Run it after writing or editing any lesson — it is part of `pnpm check`. Its first run found eight
+real problems, including a variable that appeared from nowhere in three separate snippets.
+
+To exempt a block deliberately — three spellings of the same function, or a fragment quoting a demo
+file — tag the fence ```` ```tsx no-audit ````. Use it sparingly and make the block self-explaining
+with a comment, since an exempted block is one nothing will ever check again.
+
+The audit is heuristic, not a type-checker: it does not resolve imports or catch a type that is
+silently redefined. Reading each snippet still matters.
 
 ## MDX
 
