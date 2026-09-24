@@ -53,6 +53,26 @@ export const demos: Demo[] = [
     lessonTitle: "Components and props",
     load: () => import("@/components/demos/components-and-props"),
   },
+  {
+    slug: "use-state",
+    title: "Four ways state surprises you",
+    description:
+      "A variable that will not update, two calls that count as one, and an array that changes without anyone noticing.",
+    file: "components/demos/use-state.tsx",
+    lessonHref: "/learn/react-state/use-state",
+    lessonTitle: "useState",
+    load: () => import("@/components/demos/use-state"),
+  },
+  {
+    slug: "lifting-state-up",
+    title: "One filter, three children",
+    description:
+      "A search box, a list and a summary that cannot disagree, because none of them owns the data.",
+    file: "components/demos/lifting-state-up.tsx",
+    lessonHref: "/learn/react-state/lifting-state-up",
+    lessonTitle: "Lifting state up",
+    load: () => import("@/components/demos/lifting-state-up"),
+  },
 ];
 
 export function getDemo(slug: string): Demo | undefined {

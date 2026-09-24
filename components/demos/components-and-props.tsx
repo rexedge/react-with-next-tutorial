@@ -28,8 +28,12 @@ function SessionCard({ topic, minutes, level, note }: SessionCardProps) {
   return (
     <article className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="font-medium text-zinc-900 dark:text-zinc-100">{topic}</h3>
-        <span className={`rounded px-2 py-0.5 text-xs font-medium ${levelStyles[level]}`}>
+        <h3 className="font-medium text-zinc-900 dark:text-zinc-100">
+          {topic}
+        </h3>
+        <span
+          className={`rounded px-2 py-0.5 text-xs font-medium ${levelStyles[level]}`}
+        >
           {level}
         </span>
       </div>
@@ -47,7 +51,7 @@ function SessionCard({ topic, minutes, level, note }: SessionCardProps) {
 export default function ComponentsAndPropsDemo() {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <SessionCard topic="JSX" minutes={45} level="easy" />
+      <SessionCard topic="JSX" minutes={70} level="easy" />
       <SessionCard topic="Props" minutes={30} level="easy" note="Read twice." />
       <SessionCard topic="State" minutes={60} level="medium" />
       <SessionCard
@@ -57,6 +61,12 @@ export default function ComponentsAndPropsDemo() {
         note="The one everyone overuses."
       />
       <SessionCard topic="Routing" minutes={90} level="medium" />
+      <SessionCard
+        topic="Whatever I like"
+        minutes={120}
+        level="hard"
+        note="this is a test note for everyone to see"
+      />
     </div>
   );
 }

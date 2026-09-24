@@ -220,7 +220,7 @@ export const modules: Module[] = [
           "Explain why mutating state does nothing",
         ],
         demo: "use-state",
-        status: "planned",
+        status: "published",
       },
       {
         slug: "forms-and-inputs",
@@ -228,7 +228,7 @@ export const modules: Module[] = [
         summary:
           "Wiring inputs to state, and the trade-off that comes with it.",
         objectives: ["Build a controlled input", "Handle a form submit"],
-        status: "planned",
+        status: "published",
       },
       {
         slug: "lifting-state-up",
@@ -238,7 +238,8 @@ export const modules: Module[] = [
           "Identify where state should live",
           "Pass state down and callbacks up",
         ],
-        status: "planned",
+        demo: "lifting-state-up",
+        status: "published",
       },
       {
         slug: "thinking-in-react",
@@ -248,7 +249,7 @@ export const modules: Module[] = [
           "Break a mockup into components",
           "Decide what is state and what is derived",
         ],
-        status: "planned",
+        status: "published",
       },
     ],
   },

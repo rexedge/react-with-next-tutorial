@@ -1,0 +1,345 @@
+An `<input>` is awkward for React, because it already holds state of its own. The
+browser has been tracking what the user typed since long before React existed,
+and that value lives in the DOM where React cannot see it.
+
+So there are two values that could disagree: what the input is showing, and what
+your component thinks it is showing. This lesson is about collapsing those into
+one.
+
+## Controlled inputs
+
+You give the input its value, and you handle every change:
+
+```tsx
+import { useState } from "react";
+
+function SearchBox() {
+  const [query, setQuery] = useState("");
+
+  return (
+    <input
+      value={query}
+      onChange={(event) => setQuery(event.target.value)}
+      placeholder="Search"
+    />
+  );
+}
+```
+
+Follow what happens on a keystroke, because the loop is not obvious:
+
+1. You type a character.
+2. `onChange` fires. `event.target.value` is the text the input *would* now hold.
+3. `setQuery` stores it and triggers a re-render.
+4. The input is rendered again with `value={query}` — the new text.
+
+The character you typed does not appear because you typed it. It appears because
+state changed and React rendered it back. The input displays state; it does not
+own it.
+
+<Callout variant="gotcha">
+Leave out `onChange` and the field becomes read-only — you type and nothing
+appears, because `value` pins it to a state that never changes. React warns about
+this in the console. It is the most common "my input is broken" question, and the
+fix is always the missing handler.
+</Callout>
+
+Because state is the only source of truth, everything else is easy. Show the
+length, transform it, validate it, or clear it from a button somewhere else
+entirely:
+
+```tsx
+function SearchBox() {
+  const [query, setQuery] = useState("");
+
+  return (
+    <div>
+      <input value={query} onChange={(event) => setQuery(event.target.value)} />
+      <button onClick={() => setQuery("")}>Clear</button>
+      <p>{query.length} characters</p>
+    </div>
+  );
+}
+```
+
+## The other input types
+
+Most work exactly like the above. Two do not:
+
+```tsx
+function Controls() {
+  const [done, setDone] = useState(false);
+  const [level, setLevel] = useState("easy");
+  const [notes, setNotes] = useState("");
+
+  return (
+    <form>
+      {/* Checkboxes use `checked`, not `value`. */}
+      <input
+        type="checkbox"
+        checked={done}
+        onChange={(event) => setDone(event.target.checked)}
+      />
+
+      {/* A select is controlled by value on the select itself. */}
+      <select value={level} onChange={(event) => setLevel(event.target.value)}>
+        <option value="easy">Easy</option>
+        <option value="hard">Hard</option>
+      </select>
+
+      {/* A textarea takes value too - not text between the tags. */}
+      <textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
+    </form>
+  );
+}
+```
+
+Three differences worth noting: a checkbox reads `event.target.checked` rather
+than `.value`; a `<select>` is controlled from the select, not by marking an
+option `selected`; and `<textarea>` takes a `value` prop instead of children, unlike
+in HTML.
+
+## Several fields at once
+
+With a handful of fields, separate state for each is perfectly good and the
+easiest to read:
+
+```tsx
+function SessionForm() {
+  const [topic, setTopic] = useState("");
+  const [minutes, setMinutes] = useState("");
+
+  return (
+    <form>
+      <input value={topic} onChange={(event) => setTopic(event.target.value)} />
+      <input value={minutes} onChange={(event) => setMinutes(event.target.value)} />
+    </form>
+  );
+}
+```
+
+Past four or five, one object starts to win:
+
+```tsx
+function SessionForm() {
+  const [form, setForm] = useState({ topic: "", minutes: "", level: "easy" });
+
+  function update(field: string, value: string) {
+    setForm({ ...form, [field]: value });
+  }
+
+  return (
+    <form>
+      <input value={form.topic} onChange={(e) => update("topic", e.target.value)} />
+      <input value={form.minutes} onChange={(e) => update("minutes", e.target.value)} />
+    </form>
+  );
+}
+```
+
+The spread is doing real work here. `setForm({ ...form, [field]: value })` copies
+every existing field and overrides one. Without the spread you would replace the
+whole object and wipe out the fields you did not touch.
+
+<Callout variant="note">
+`[field]: value` is a **computed property name** — the key comes from the
+variable rather than being written literally. It is plain JavaScript, and this is
+the first place in the course where it earns its keep.
+</Callout>
+
+## Numbers
+
+An input's value is always a string, even `type="number"`:
+
+```tsx
+function MinutesField() {
+  const [minutes, setMinutes] = useState("");
+
+  const asNumber = Number(minutes);
+  const valid = minutes !== "" && !Number.isNaN(asNumber);
+
+  return (
+    <div>
+      <input
+        type="number"
+        value={minutes}
+        onChange={(event) => setMinutes(event.target.value)}
+      />
+      {valid ? <p>{asNumber * 2} minutes doubled</p> : null}
+    </div>
+  );
+}
+```
+
+Keeping the raw string in state and converting when you need a number is usually
+simpler than converting on every keystroke — converting early means an empty
+field becomes `NaN`, or a half-typed `"1."` gets rewritten under the user's
+fingers.
+
+## Submitting
+
+Handle `onSubmit` on the form, and prevent the reload:
+
+```tsx
+function SessionForm() {
+  const [topic, setTopic] = useState("");
+  const [saved, setSaved] = useState<string[]>([]);
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (topic.trim() === "") return;
+
+    setSaved([...saved, topic]);
+    setTopic(""); // clearing state clears the input
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input value={topic} onChange={(event) => setTopic(event.target.value)} />
+      <button type="submit">Add</button>
+      <p>{saved.length} saved</p>
+    </form>
+  );
+}
+```
+
+Note the last line of the handler. To empty the field you set state to `""` —
+you never touch the input. That is the payoff of controlled inputs: the form is
+just data, and data is easy to reset, validate, or prefill.
+
+<Callout variant="tip">
+`useState<string[]>([])` passes a type explicitly. Without it TypeScript infers
+`never[]` from the empty array — the same "nothing to infer from" problem the
+TypeScript primer flagged for empty arrays. It is the one place in everyday React
+where you routinely write a type argument.
+</Callout>
+
+## Uncontrolled inputs
+
+The alternative is to let the DOM keep the value and only read it on submit:
+
+```tsx
+function SearchForm() {
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    console.log(data.get("q"));
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="q" defaultValue="" />
+      <button type="submit">Search</button>
+    </form>
+  );
+}
+```
+
+`defaultValue` sets the starting text and then steps back. There is no state, no
+re-render per keystroke, and no way to react to what is typed until submit.
+
+This is a legitimate choice for a simple form, and Next.js leans on it in Tier 3
+where forms are submitted to the server. Use controlled inputs when something has
+to respond as the user types — live validation, a character count, a disabled
+button, a filtered list. Use uncontrolled when you only care about the final
+answer.
+
+<Callout variant="warning">
+Do not switch between them by accident. If `value` starts as `undefined` and
+later becomes a string, React warns that an uncontrolled input is changing to
+controlled. The cause is nearly always state initialised as `undefined` instead
+of `""`.
+</Callout>
+
+<Exercise title="A form that fights back">
+Open `components/demos/use-state.tsx` and add a fifth panel: a small form for
+adding a study session.
+
+1. Two controlled inputs — a topic (text) and minutes (number) — plus an **Add**
+   button, and a list of what has been added.
+
+2. Make the button `disabled` unless the topic is non-empty **and** minutes is a
+   valid number greater than zero.
+
+3. Clear both fields after a successful add, without touching the inputs
+   directly.
+
+4. Show a live character count under the topic field.
+
+5. Finally, break it deliberately: delete `onChange` from the topic input and try
+   to type. Read the console warning, then put it back.
+</Exercise>
+
+<Solution>
+```tsx no-audit
+function SessionForm() {
+  const [topic, setTopic] = useState("");
+  const [minutes, setMinutes] = useState("");
+  const [sessions, setSessions] = useState<string[]>([]);
+
+  const minutesNumber = Number(minutes);
+  const valid = topic.trim() !== "" && minutes !== "" && minutesNumber > 0;
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!valid) return;
+
+    setSessions([...sessions, `${topic} - ${minutesNumber} min`]);
+    setTopic("");
+    setMinutes("");
+  }
+
+  return (
+    <Panel title="5. A controlled form" verdict="works">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+        <input
+          value={topic}
+          onChange={(event) => setTopic(event.target.value)}
+          placeholder="Topic"
+          className="rounded border border-zinc-300 px-2 py-1 dark:border-zinc-700"
+        />
+        <p className="text-xs text-zinc-500">{topic.length} characters</p>
+
+        <input
+          type="number"
+          value={minutes}
+          onChange={(event) => setMinutes(event.target.value)}
+          placeholder="Minutes"
+          className="rounded border border-zinc-300 px-2 py-1 dark:border-zinc-700"
+        />
+
+        <button type="submit" disabled={!valid} className={buttonClass}>
+          Add
+        </button>
+      </form>
+
+      <ul className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+        {sessions.map((session, index) => (
+          <li key={index}>{session}</li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+```
+
+Three things worth pointing at.
+
+**`valid` is derived, not stored.** There is no `const [valid, setValid]`. It is
+recalculated on every render from the fields it depends on, so it cannot fall out
+of step with them — the rule from the last lesson, doing real work.
+
+**Clearing the form is two assignments to state.** You never reach for the input
+element. The fields empty because they render what state says, and state now says
+nothing.
+
+**Step 5** produces a console warning — *"You provided a `value` prop to a form
+field without an `onChange` handler"* — and the field simply refuses to accept
+typing. It is not frozen by accident: `value={topic}` is doing exactly what you
+asked, rendering state on every keystroke, and state never changes.
+
+One honest caveat about this solution: `key={index}` on the list. Sessions are
+only ever appended and the rows hold no state, which is the narrow case where an
+index key is safe. Give each session an id the moment you allow deleting or
+reordering.
+</Solution>

@@ -1,0 +1,319 @@
+Everything you have built so far has been fixed at the moment it rendered. Props
+come from a parent, and a component cannot change its own. Nothing on screen has
+ever changed in response to a click except in demos you were told to ignore.
+
+This is the lesson where that changes, and it is the most important one in the
+course.
+
+## Why a variable is not enough
+
+The obvious approach does not work:
+
+```tsx
+function Counter() {
+  let count = 0;
+
+  function handleClick() {
+    count += 1;
+  }
+
+  return <button onClick={handleClick}>{count}</button>;
+}
+```
+
+Click it and nothing happens. Not because the variable fails to change — it does,
+and the first panel of the demo proves it by logging to the console. Two separate
+things are wrong:
+
+1. **Nobody told React.** React has no idea the variable changed, so it never
+   re-runs the component, and the screen keeps showing the result of the last
+   render.
+2. **It would be erased anyway.** `let count = 0` runs every time the component
+   renders. Even if something else caused a re-render, `count` would be reset to
+   zero.
+
+State solves both. It survives re-renders, and changing it *causes* one.
+
+<Callout variant="tip">
+ESLint in this project catches that exact mistake — *"Cannot reassign variable
+after render completes"*. The demo file has the rule switched off with a comment
+explaining why, because the panel needs to fail on purpose. If you see this error
+in your own code, the fix is almost always the hook below.
+</Callout>
+
+## useState
+
+```tsx
+import { useState } from "react";
+
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  function handleClick() {
+    setCount(count + 1);
+  }
+
+  return <button onClick={handleClick}>{count}</button>;
+}
+```
+
+`useState` returns an array of exactly two things, and the line destructures it
+by position — the array destructuring from Tier 0:
+
+- **`count`** — the value for this render.
+- **`setCount`** — the function that changes it and asks React to render again.
+
+The argument, `0`, is the **initial** value. It is used the first time this
+component renders and ignored on every render after, which surprises people: it
+is a starting point, not a default that gets reapplied.
+
+The names are yours. The convention is `[thing, setThing]`, and following it
+makes your code readable to everyone else.
+
+<Callout variant="note">
+Hooks must be called at the **top level** of a component — never inside an `if`,
+a loop, or a nested function. React identifies your state by the order the hooks
+were called in, so that order has to be identical on every render. Lesson 20
+covers why in full; for now, keep `useState` calls at the top of the component
+and you will never hit it.
+</Callout>
+
+## What the setter actually does
+
+This is the part worth slowing down for. `setCount` does **not** change `count`.
+
+```tsx
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  function handleClick() {
+    setCount(count + 1);
+    console.log(count); // still the old value
+  }
+
+  return <button onClick={handleClick}>{count}</button>;
+}
+```
+
+That log prints `0` on the first click, not `1`.
+
+`count` is a `const`. It is a value belonging to *this render*, and it will never
+change for as long as this render exists. What `setCount` does is tell React
+"next time, use this instead", and React schedules a fresh render of the
+component. On that new render, `useState` hands back the new value, and `count`
+is a new constant with a new value.
+
+So a component does not update itself. It gets **called again**, with different
+data. Each render is a snapshot that never changes after the fact.
+
+## The consequence: two calls, one value
+
+Because `count` is frozen for the render, this does not do what it looks like:
+
+```tsx
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  function addTwo() {
+    setCount(count + 1);
+    setCount(count + 1);
+  }
+
+  return <button onClick={addTwo}>{count}</button>;
+}
+```
+
+Starting from `0`, both lines read the same `count` — `0` — so both say "make it
+`1`". The second does not overwrite the first with `2`; it repeats it. The result
+goes up by one.
+
+That is panel 2 of the demo, and clicking it is more convincing than reading
+about it.
+
+## The updater function
+
+When the next value depends on the previous one, pass a **function** instead of a
+value:
+
+```tsx
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  function addTwo() {
+    setCount((current) => current + 1);
+    setCount((current) => current + 1);
+  }
+
+  return <button onClick={addTwo}>{count}</button>;
+}
+```
+
+React queues these and runs them in order, handing each one the result of the one
+before. Now it goes up by two.
+
+The rule is simple enough to follow without thinking about it:
+
+> If the new value is calculated from the old one, use the function form.
+
+<Callout variant="gotcha">
+This matters far beyond double-clicks. Any update that runs after a delay — a
+saved response, a timer, anything asynchronous — will be holding a `count` from
+whenever it started, which may be several renders stale by the time it runs. The
+function form always receives the current value.
+</Callout>
+
+## Never change state in place
+
+The Tier 0 habit, now with the reason attached:
+
+```tsx
+function Topics() {
+  const [topics, setTopics] = useState(["JSX"]);
+
+  function broken() {
+    topics.push("Props"); // the array changes; React never finds out
+  }
+
+  function works() {
+    setTopics([...topics, "Props"]); // a new array
+  }
+
+  return <button onClick={works}>{topics.length}</button>;
+}
+```
+
+React decides whether anything changed by comparing the new state to the old with
+`Object.is` — a reference check, not a deep inspection. Push onto the array and
+it is still the *same array*, so even calling the setter with it announces
+nothing. Build a new array and the reference differs, so React re-renders.
+
+The same applies to objects:
+
+```tsx
+function Profile() {
+  const [user, setUser] = useState({ name: "Ada", minutes: 0 });
+
+  function addMinutes() {
+    setUser({ ...user, minutes: user.minutes + 10 });
+  }
+
+  return <button onClick={addMinutes}>{user.minutes}</button>;
+}
+```
+
+Spread the old one, override what changed. This is why Tier 0 spent a section on
+spread before you had any use for it.
+
+## One piece of state per instance
+
+Each rendered copy of a component gets its own state:
+
+```tsx
+function Counter() {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(count + 1)}>{count}</button>;
+}
+
+function Page() {
+  return (
+    <div>
+      <Counter />
+      <Counter />
+    </div>
+  );
+}
+```
+
+Two buttons, two independent counts. State belongs to the *place in the tree*,
+not to the function — which is why the same component can appear fifty times
+without them interfering. It is also why the next lesson but one exists: when two
+components need to agree on something, this isolation becomes the problem rather
+than the feature.
+
+## What belongs in state
+
+Not everything. Anything you can calculate from what you already have should be
+calculated, not stored:
+
+```tsx
+function Tracker() {
+  const [sessions, setSessions] = useState([{ topic: "JSX", done: true }]);
+
+  // Right: worked out during render, so it cannot be wrong.
+  const doneCount = sessions.filter((s) => s.done).length;
+
+  return <button onClick={() => setSessions([])}>{doneCount}</button>;
+}
+```
+
+Keeping a separate `doneCount` in state would mean remembering to update it
+everywhere `sessions` changes — which is precisely the bug from lesson 5, invited
+back in through a different door.
+
+> **If you can derive it, do not store it.**
+
+<DemoLink slug="use-state" file="components/demos/use-state.tsx" />
+
+<Exercise title="Break all four panels, then fix two">
+Open the demo and click through every panel before changing anything. Panels 1
+and 2 are broken on purpose — see them fail first.
+
+Then:
+
+1. **Fix panel 1.** Convert `PlainVariable` to use `useState`. It should count up.
+
+2. **Fix panel 2.** Change `StaleSnapshot` so that clicking adds two.
+
+3. **In panel 4**, click *push (broken)* three times — nothing moves. Now click
+   *spread (works)* **once**. Explain what appears and why.
+
+4. Add a fifth panel of your own: a reset button that sets a count back to zero.
+</Exercise>
+
+<Solution>
+**1.** The variable becomes state, and the assignment becomes a setter call:
+
+```tsx no-audit
+const [count, setCount] = useState(0);
+
+function handleClick() {
+  setCount(count + 1);
+}
+```
+
+You can also delete the `eslint-disable` comment above the component once it is
+fixed — the rule has nothing left to object to.
+
+**2.** Either the updater form, which is the answer this lesson wants:
+
+```tsx no-audit
+setCount((current) => current + 1);
+setCount((current) => current + 1);
+```
+
+Or `setCount(count + 2)`, which also works and is arguably clearer for adding a
+fixed amount. Both are correct; the updater matters when you cannot express the
+change as one calculation.
+
+**3.** Clicking *spread* once makes **all four items appear at once** —
+`["JSX", "Another", "Another", "Another"]`.
+
+The three pushes did happen. The array grew each time. What did not happen was a
+re-render, so the screen went on showing the text produced by the last one. Then
+*spread* built a genuinely new array — from the already-mutated one, which is
+why all the pushed items came along — and that new reference finally convinced
+React to render.
+
+This is worth sitting with, because it explains the symptom you will actually
+meet: not "my change was lost", but **"my changes all appeared at once, later,
+when I did something unrelated."** If you ever see that, you mutated state
+somewhere.
+
+**4.** A reset needs no updater, since the new value does not depend on the old:
+
+```tsx no-audit
+<button type="button" onClick={() => setCount(0)} className={buttonClass}>
+  Reset
+</button>
+```
+</Solution>

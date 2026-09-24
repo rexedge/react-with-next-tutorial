@@ -1,0 +1,204 @@
+State belongs to one component. That was the good news in lesson 11 — fifty
+copies of a component, fifty independent counters, no interference.
+
+It becomes the problem the moment two components need to agree about something.
+
+## The situation
+
+A search box and a list. The box knows what was typed; the list needs to know it
+too. If the box keeps that in its own state, the list has no way to reach it —
+state is private, and there is no sideways path between siblings.
+
+```tsx
+function SearchInput() {
+  const [query, setQuery] = useState(""); // trapped in here
+  return <input value={query} onChange={(e) => setQuery(e.target.value)} />;
+}
+
+function SessionList() {
+  // Needs `query`. Cannot get at it. There is no way to ask.
+  return <ul />;
+}
+```
+
+You could try passing it upward, but props only travel down. A child cannot hand
+anything to its parent.
+
+## The move
+
+Put the state in the **closest component that contains both of them**, and pass
+it back down:
+
+```tsx
+function Page() {
+  const [query, setQuery] = useState("");
+
+  return (
+    <div>
+      <SearchInput value={query} onChange={setQuery} />
+      <SessionList query={query} />
+    </div>
+  );
+}
+```
+
+`SearchInput` no longer owns the query. It is handed the current value and a
+function to call when it should change:
+
+```tsx
+function SearchInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  return <input value={value} onChange={(event) => onChange(event.target.value)} />;
+}
+```
+
+That is the whole technique, and it has a name because you will do it constantly:
+**lifting state up**.
+
+## Values down, events up
+
+Look at what crosses the boundary in each direction, because this is the shape of
+nearly every React app:
+
+- **Down**: the current value, as a prop.
+- **Up**: nothing. The child calls a function the parent gave it.
+
+Nothing is ever handed upward. The parent lends the child a way to ask for a
+change, keeps the authority to make it, and the child gets the result back the
+only way it ever does — as a prop, on the next render.
+
+This answers the question left open in lesson 7, where props were read-only and
+it was not obvious how anything could ever change.
+
+<Callout variant="note">
+The naming convention from the events lesson is doing real work here. A prop
+called `onChange` is a request the child can make; a function called
+`handleChange` is the parent's answer. When you see `on*` going down, you are
+looking at lifted state.
+</Callout>
+
+## A component that owns nothing
+
+`SearchInput` is now **controlled** by its parent — the same relationship a
+controlled `<input>` has with your component, one level up. It has no state, it
+renders what it is given, and it reports what happened.
+
+Components like this are worth the trouble:
+
+- They are trivial to reuse, because they make no assumptions about where the
+  value comes from.
+- They cannot get out of sync, having nothing of their own to be out of sync
+  with.
+- They are easy to reason about: same props, same output, every time.
+
+## How far up to go
+
+The rule is "the closest common ancestor", and it is worth taking literally in
+both directions.
+
+Too low and siblings cannot reach it — the problem you started with. Too high and
+you get a different problem: state at the top of the app, threaded through five
+components that do not care about it, each one re-rendering whenever it changes.
+That is **prop drilling**, and it is a real cost, not a style complaint.
+
+Lift only as far as you must. When the honest answer really is "most of the app
+needs this", that is what lesson 17 (context) is for — but reach for it after the
+problem exists, not in anticipation of it.
+
+<Callout variant="tip">
+A useful question when you are unsure: *which components would be wrong if this
+value changed and they did not hear about it?* State belongs above all of them,
+and no higher.
+</Callout>
+
+## Derive in the parent
+
+Once the parent owns the data, the calculations belong there too:
+
+```tsx
+// A third child, which only ever shows what it is told.
+function Summary({ count, total }: { count: number; total: number }) {
+  return (
+    <p>
+      Showing {count} of {total}
+    </p>
+  );
+}
+
+function Page() {
+  const [query, setQuery] = useState("");
+  const [sessions, setSessions] = useState([{ id: 1, topic: "JSX" }]);
+
+  // One calculation, handed to whoever needs the answer.
+  const visible = sessions.filter((session) => session.topic.includes(query));
+
+  return (
+    <div>
+      <SearchInput value={query} onChange={setQuery} />
+      <SessionList sessions={visible} />
+      <Summary count={visible.length} total={sessions.length} />
+    </div>
+  );
+}
+```
+
+The list and the summary cannot disagree about how many results there are,
+because neither of them works it out. They are both shown the same array.
+
+<DemoLink slug="lifting-state-up" file="components/demos/lifting-state-up.tsx" />
+
+<Exercise title="Push state down and watch it break">
+The demo has `query` and `sessions` in the parent, with three children that
+consume them. You are going to undo that, see the damage, and put it back.
+
+1. **Move `query` into `SearchInput`.** Give that component its own
+   `useState("")`, drop the `value` and `onChange` props, and remove `query` from
+   the parent. Fix whatever stops compiling — the summary will need something.
+
+2. Type in the box. What still works, and what does not?
+
+3. **Put it back**, then add a feature that proves the point: a **"Hide finished"**
+   checkbox beside the search box. When ticked, completed sessions disappear from
+   the list *and* stop being counted in the summary.
+
+   Decide where that checkbox's state belongs before you write it.
+</Exercise>
+
+<Solution>
+**Step 2.** The input still works perfectly — you can type, characters appear,
+because that part only ever needed its own state.
+
+Everything else stops. The list no longer filters and the summary cannot mention
+the query, because the one component that knows what was typed has no way to
+tell anybody. If you deleted `query` from the parent you will also have found
+that `Summary` will not compile without it, which is TypeScript pointing at the
+dependency you just severed.
+
+**Step 3.** The checkbox state goes in the **parent**, for exactly the reason the
+query does — two children depend on it:
+
+```tsx no-audit
+const [hideFinished, setHideFinished] = useState(false);
+
+const visible = sessions
+  .filter((session) => session.topic.toLowerCase().includes(query.toLowerCase()))
+  .filter((session) => !hideFinished || !session.done);
+```
+
+Then pass `hideFinished` and `setHideFinished` down beside the search box, the
+same way `query` travels.
+
+The thing to notice is that `Summary` needed no change at all. It already takes
+`visible`, and `visible` is derived from every filter that exists — so adding a
+second filter updated the count for free.
+
+That is the compounding benefit. In lesson 5's vanilla tracker, a new filter
+meant finding every readout and teaching it about the new rule. Here, the
+calculation lives in one place, everything downstream reads the result, and a new
+rule has exactly one place to go.
+</Solution>

@@ -160,23 +160,25 @@ being an empty shell with sixty stub pages.
 
 ## Status
 
-Step 1 is done. **Step 2 is in progress**: Tier 0 is complete and Tier 1 is 6 lessons into 23.
-`pnpm check` (lint + lesson audit + build) passes; 65 routes prerender.
+Step 1 is done. **Step 2 is in progress**: Tier 0 is complete and Tier 1 is 10 lessons into 23.
+`pnpm check` (lint + lesson audit + build) passes; 67 routes prerender.
 
 Written so far:
 
 - **Tier 0** — complete. 4 lessons.
-- **Tier 1, React basics** — complete. 6 lessons: *Why React exists*, *JSX*, *Components and props*,
-  *Lists and keys*, *Conditional rendering*, *Handling events*.
+- **Tier 1, React basics** — complete. 6 lessons.
+- **Tier 1, State** — complete. 4 lessons: *useState*, *Forms and controlled inputs*,
+  *Lifting state up*, *Thinking in React*.
 
-Three demos are live: `array-methods`, `why-react`, `components-and-props`.
+Five demos are live: `array-methods`, `why-react`, `components-and-props`, `use-state`,
+`lifting-state-up`.
 
-The remaining 46 entries are declared in `content/curriculum.ts` as `status: "planned"` and render a
+The remaining 42 entries are declared in `content/curriculum.ts` as `status: "planned"` and render a
 stub.
 
-Next: **Tier 1, State** — `useState`, controlled inputs, lifting state up, and *Thinking in React*.
-The React basics lessons deliberately end by pointing at it, and the `why-react` demo already uses
-`useState` with a note telling the student to ignore it, so that debt comes due first.
+Next: **Tier 1, Effects and refs** — `useEffect` (and the many times not to reach for it) and
+`useRef`. The *Thinking in React* exercise deliberately leaves a session timer designed but
+unbuilt, because it needs a ticking clock; that is the natural first demo for `useEffect`.
 
 ## Writing lessons
 
@@ -184,9 +186,25 @@ The process, in order, learned the hard way:
 
 1. Write the MDX and any demo it needs.
 2. Run `pnpm audit:lessons`. Fix what it finds; exempt only what is genuinely a deliberate fragment.
-3. Read every snippet as if pasting it into a file. The audit does not catch a claim that is merely
-   *wrong* — an exercise once told the student to expect a change that could not happen, because the
-   value was computed above the line they were asked to edit.
-4. Where a lesson asserts an observable outcome, **run it** and confirm, rather than reasoning about
-   it.
-5. Flip `status` to `"published"` in the manifest, then `pnpm check`.
+3. **Read every snippet as if pasting it into a file.** The audit is heuristic and misses whole
+   classes of error. It found nothing wrong with `{ sessions: typeof sessions }`, which is a
+   circular type annotation (TS2502) and does not compile; only reading it caught that. When a
+   snippet looks doubtful, write it to a scratch `.tsx` inside the project and run `npx tsc
+   --noEmit --jsx react-jsx --strict --skipLibCheck` on it.
+4. The audit also cannot catch a claim that is merely *wrong*. An exercise once told the student to
+   expect a change that could not happen, because the value was computed above the line they were
+   asked to edit. Where a lesson asserts an observable outcome, **run it** and confirm.
+5. Be wary of asserting interactive behaviour the build cannot verify. A demo panel originally
+   called `setState` with the same array reference to show mutation failing — React bails out there,
+   but reserves the right to render the component once anyway, which would have made the lesson
+   intermittently wrong. It was changed to mutate without calling the setter, which is deterministic.
+6. Flip `status` to `"published"` in the manifest, then `pnpm check`.
+
+### A known gap
+
+The audit catches dangling identifiers, duplicate declarations and syntax errors. It does **not**
+type-check. Extending it to compile each block is the obvious next improvement, and the obstacle is
+false positives: lesson snippets are deliberately fragmentary, so a naive `tsc` pass would flag
+missing imports and undefined components on almost every block. A contained version — reporting only
+error codes that indicate genuinely broken code regardless of missing context, such as TS2502 —
+would be worth trying.

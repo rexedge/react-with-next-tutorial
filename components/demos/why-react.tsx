@@ -45,6 +45,9 @@ export default function WhyReactDemo() {
   const doneMinutes = sessions
     .filter((s) => s.done)
     .reduce((total, s) => total + s.minutes, 0);
+  const totalMinutes = sessions.reduce((total, s) => total + s.minutes, 0);
+  const remainingMinutes = totalMinutes - doneMinutes;
+  const remainingCount = sessions.length - doneCount;
   const percent = Math.round((doneCount / sessions.length) * 100);
 
   return (
@@ -94,7 +97,12 @@ export default function WhyReactDemo() {
           />
         </div>
 
-        <p className="mt-2 text-center text-xs text-zinc-500">{percent}% complete</p>
+        <p className="mt-2 text-center text-xs text-zinc-500">
+          {percent}% complete
+        </p>
+        <p className="mt-1 text-center text-xs text-zinc-500">
+          {remainingMinutes} minutes remaining - {remainingCount} sessions left
+        </p>
       </div>
     </div>
   );

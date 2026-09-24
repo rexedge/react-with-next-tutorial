@@ -1,0 +1,247 @@
+You now have every piece: components, props, lists, conditionals, events, state,
+and lifting. What you do not have yet is a method — a way to go from a picture of
+an interface to a working one without guessing.
+
+There is a well-worn one, and it is worth following literally the first few
+times.
+
+## 1. Draw boxes around the components
+
+Take the design and draw a box around every part that does one job. A component
+should have a **single responsibility**, the same instinct you would apply to a
+function.
+
+For the tracker in the demo:
+
+```text
+LiftingStateUpDemo          the whole thing
+├── SearchInput             one input
+├── SessionList             the rows
+│   └── (one row per item)
+└── Summary                 the counts underneath
+```
+
+A reliable hint: if your data has a shape, the UI usually mirrors it. A list of
+sessions becomes a list component with a row component, because the data is a
+list of session objects.
+
+Do not agonise here. Boxes are cheap to redraw once you can see the thing
+running.
+
+## 2. Build it static first, with no state at all
+
+Write the whole tree so it renders from props. Hardcode the data. Nothing is
+clickable, nothing changes, and no `useState` appears anywhere.
+
+```tsx
+type Session = {
+  id: number;
+  topic: string;
+  minutes: number;
+  done: boolean;
+};
+
+const sessions: Session[] = [
+  { id: 1, topic: "JSX", minutes: 45, done: true },
+  { id: 2, topic: "State", minutes: 60, done: false },
+];
+
+function Tracker() {
+  return (
+    <div>
+      <SessionList sessions={sessions} />
+    </div>
+  );
+}
+
+function SessionList({ sessions }: { sessions: Session[] }) {
+  return (
+    <ul>
+      {sessions.map((session) => (
+        <li key={session.id}>{session.topic}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+This feels like a detour and is not. Static rendering is where you find out
+whether the boxes were right, and it is a lot of typing with very little
+thinking — which is exactly the wrong time to also be reasoning about state.
+
+Do not mix the two. Get it on screen, then make it move.
+
+## 3. Find the smallest set of things that can change
+
+Now list everything in the design that varies. For each one, ask three
+questions — any *yes* means it is **not** state:
+
+1. **Does it stay the same the whole time?** Then it is a constant.
+2. **Is it passed in from a parent?** Then it is a prop.
+3. **Can you work it out from other state or props?** Then derive it.
+
+Run the tracker's candidates through that:
+
+| Candidate | Verdict |
+| --- | --- |
+| The list of sessions | **State.** Changes, arrives from nowhere else. |
+| The search text | **State.** Changes when the user types. |
+| Filtered sessions | Derived — `sessions` plus `query`. |
+| How many are done | Derived — count the filtered list. |
+| Total minutes | Derived — add them up. |
+| Whether the list is empty | Derived — check the length. |
+
+Six things that change on screen, two pieces of state. Everything else is a
+calculation.
+
+<Callout variant="warning">
+Question 3 is the one people skip, and it is where most React bugs are born. Every
+value you store separately is a value that can disagree with the thing it was
+derived from. The vanilla tracker in lesson 5 was one long demonstration of that,
+and `useState` makes the same mistake available in a nicer syntax.
+</Callout>
+
+## 4. Decide where each piece lives
+
+For every piece of state, find every component that depends on it — including
+ones that only need something *derived* from it. Then put it in their closest
+common ancestor. That is the previous lesson, applied deliberately rather than
+when something breaks.
+
+For `query`: `SearchInput` displays it, `SessionList` filters by it, `Summary`
+mentions it. Their closest common ancestor is the parent, so that is where it
+goes.
+
+When the answer comes out as "a component that only exists to hold this", that is
+fine — creating a parent whose whole job is to own state is a normal and healthy
+move.
+
+## 5. Add the way back up
+
+The last step is making it changeable. Every component that needs to *cause* a
+change gets a function as a prop — values down, events up.
+
+```tsx no-audit
+// SearchInput is the controlled child from the previous lesson: it takes the
+// current value and a function to call, and owns nothing itself.
+function Page() {
+  const [query, setQuery] = useState("");
+  return <SearchInput value={query} onChange={setQuery} />;
+}
+```
+
+If step 4 was done properly, step 5 is mechanical. If it is painful — if you find
+yourself wanting to send something sideways, or reaching for a value two levels
+away — that is a signal that a piece of state is in the wrong place. Go back to
+step 4 rather than working around it.
+
+## The shape this produces
+
+Follow the five steps and you tend to end up with the same structure:
+
+- A **small number of components that own state**, usually near the top of a
+  section, doing the calculating.
+- A **larger number of components that own nothing**, taking props and rendering
+  them.
+
+The second kind is where you want to spend most of your time. They are easy to
+read, easy to reuse, and cannot be wrong on their own — given the same props they
+produce the same output, every time.
+
+<Callout variant="tip">
+When a component gets hard to follow, the useful question is rarely "how do I
+split this file". It is **"how much of this is state that should have been
+derived, and how much is state that belongs to someone else?"** Usually the
+answer shortens the component considerably.
+</Callout>
+
+## What is still missing
+
+Honestly: quite a lot, and it is worth naming so you know what you are waiting
+for.
+
+Everything so far is a closed world. The data was written into the file. Nothing
+talks to a server, nothing persists when you reload, and nothing happens except
+in response to a click.
+
+The rest of Tier 1 opens that up — effects for talking to systems outside React,
+refs for reaching a DOM node, context for state that genuinely is needed
+everywhere, and reducers for state changes too involved to inline. Then Tier 2
+puts it on real URLs, and Tier 3 connects it to a server.
+
+But the method here does not change. Draw the boxes, build it static, find the
+minimum state, place it, wire it back. That holds for the rest of the course.
+
+<Exercise title="Design it before you build it">
+This one is mostly on paper, which is the point.
+
+A "session timer" panel, described rather than drawn:
+
+- A dropdown to pick a topic from the existing sessions.
+- A **Start** / **Stop** button.
+- A running display of elapsed seconds.
+- A line reading *"3 sessions logged — 12 minutes total"*.
+- When stopped with time on the clock, the session is added to the log.
+
+Before writing any code:
+
+1. Draw the component boxes and name them.
+2. List everything that can change, and mark each one **state** or **derived**,
+   with a reason.
+3. For each piece of state, name the component it belongs to.
+
+Then check yourself: if you marked more than three things as state, look again.
+
+You do not have to build it — the ticking clock needs `useEffect`, which is two
+lessons away. Design it now, and build it when you get there.
+</Exercise>
+
+<Solution>
+**1. The boxes:**
+
+```text
+SessionTimer            owns the state
+├── TopicSelect         a dropdown
+├── TimerDisplay        the elapsed number
+├── TimerControls       start / stop button
+└── SessionLog          the "3 sessions - 12 minutes" line
+```
+
+**2. What changes:**
+
+| Thing | Verdict | Why |
+| --- | --- | --- |
+| Selected topic | **State** | The user picks it; nothing else determines it |
+| Whether it is running | **State** | Toggled by the button |
+| Elapsed seconds | **State** | Advances on its own; cannot be computed from the others |
+| Logged sessions | **State** | Accumulates over time |
+| Button label (Start/Stop) | Derived | It *is* "whether it is running", worded differently |
+| "3 sessions logged" | Derived | `log.length` |
+| "12 minutes total" | Derived | Sum of the log |
+| Whether Start is disabled | Derived | No topic selected |
+| Formatted clock, `02:15` | Derived | Elapsed seconds, formatted |
+
+Four pieces of state. The exercise said to look again past three, and looking
+again is the right instinct — but here the fourth survives scrutiny. Elapsed
+seconds is genuinely independent: it changes without user input and cannot be
+calculated from the other three.
+
+The most tempting mistake is a `buttonLabel` in state. It looks like a thing that
+changes, and it is — but it changes *because* `isRunning` did. Store it and you
+have created the possibility of a Stop button on a stopped timer, which is
+lesson 5's bug wearing a hook.
+
+**3. All four live in `SessionTimer`.** Elapsed seconds is displayed by
+`TimerDisplay` but written to by the timer itself and read by whatever logs the
+session — more than one dependent, so it goes to the common ancestor. The same
+reasoning covers the other three.
+
+Every child is then propless-of-state: given values, handed callbacks, owning
+nothing.
+
+Worth noticing what this exercise actually was. You designed a component tree,
+settled where four pieces of state live, and identified five derived values —
+without writing a line, and without needing to know how `useEffect` works. The
+design and the syntax are separate problems, and the design is the one that
+determines whether the thing is pleasant to build.
+</Solution>
